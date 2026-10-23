@@ -130,11 +130,17 @@
 
     .mock { margin-top: 22px; padding-top: 18px; border-top: 1px solid #292933; }
     .mock-result { margin-top: 10px; font-size: 12px; color: #777786; min-height: 1.4em; }
+    .recent { margin-top: 18px; }
+    .recent ul { list-style: none; margin: 0; padding: 0; font-size: 13px; }
+    .recent li { display: flex; gap: 8px; align-items: baseline; padding: 7px 0; border-bottom: 1px solid #292933; }
+    .recent li .time { color: #777786; font-size: 11px; flex-shrink: 0; }
+    .recent li .what { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+    .recent .empty { color: #777786; font-size: 12px; }
 
     /* Admin */
-    .grid { display: grid; grid-template-columns: 1fr 1fr 110px auto; gap: 10px; align-items: end; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr 150px 110px auto; gap: 10px; align-items: end; }
     .grid label { margin: 0 0 6px; font-size: 12px; }
-    .grid input { padding: 12px; }
+    .grid input, .grid select { padding: 12px; }
     @media (max-width: 700px) { .grid { grid-template-columns: 1fr; } }
 
     .cred {
@@ -213,9 +219,18 @@
         <div id="mockResult" class="mock-result" role="status" aria-live="polite"></div>
       </div>
 
+      <div id="testNote" class="note" hidden style="margin-top:14px;color:#b7b7c5">
+        Test account: gifts are shown below only. They are not sent to the Roblox game.
+      </div>
+
       <div id="status" class="status" data-state="idle" role="status" aria-live="polite">
         <span class="dot"></span>
         <span id="statusText">Checking...</span>
+      </div>
+
+      <div class="recent">
+        <h2>Recent gifts</h2>
+        <ul id="recentList"><li class="empty">No gifts yet.</li></ul>
       </div>
 
       <p class="note">
@@ -227,15 +242,21 @@
     <!-- ============ Admin ============ -->
     <section id="adminView" hidden>
       <h1>Admin</h1>
-      <p class="description">Create renter accounts. Passwords are random and shown only once.</p>
+      <p class="description">Create accounts: Rental expires after the days you set, Lifetime never expires. Passwords are random and shown only once.</p>
 
       <form id="createForm" class="grid">
         <div><label for="newId">ID</label>
           <input id="newId" class="boxed" type="text" maxlength="32" placeholder="Tester-001" required /></div>
         <div><label for="newRoblox">Roblox username</label>
           <input id="newRoblox" class="boxed" type="text" maxlength="20" placeholder="RobloxName" required /></div>
-        <div><label for="newDays">Days (0 = none)</label>
-          <input id="newDays" class="boxed" type="number" min="0" max="3650" value="30" /></div>
+        <div><label for="newPlan">Plan</label>
+          <select id="newPlan" class="boxed">
+            <option value="rental">Rental (days)</option>
+            <option value="lifetime">Lifetime (buy)</option>
+            <option value="test">Test (no Roblox)</option>
+          </select></div>
+        <div><label for="newDays">Days</label>
+          <input id="newDays" class="boxed" type="number" min="1" max="3650" value="30" /></div>
         <button class="small pink" type="submit" style="padding:14px 16px">Create</button>
       </form>
       <div id="adminMsg" class="msg" role="status" aria-live="polite"></div>
@@ -252,7 +273,7 @@
         <div class="table-wrap">
           <table>
             <thead><tr>
-              <th>ID</th><th>Roblox</th><th>Status</th><th>TikTok</th><th>Expires</th><th>Queue</th><th></th>
+              <th>ID</th><th>Roblox</th><th>Status</th><th>TikTok</th><th>Plan / Expires</th><th>Queue</th><th></th>
             </tr></thead>
             <tbody id="tenantRows"></tbody>
           </table>
@@ -387,7 +408,12 @@
       $("tenantWho").innerHTML = "";
       const b = document.createElement("b");
       b.textContent = me.id;
-      $("tenantWho").append("Signed in as ", b, ` · Roblox: ${me.robloxName} · Access until: ${fmtDate(me.expiresAt)}`);
+      currentPlan = me.plan;
+      const access = me.plan === "lifetime" ? "Access: Lifetime"
+        : me.expiresAt ? `Access until: ${fmtDate(me.expiresAt)}` : "No expiry";
+      const roblox = me.plan === "test" ? "Test account" : `Roblox: ${me.robloxName}`;
+      $("tenantWho").append("Signed in as ", b, ` · ${roblox} · ${access}`);
+      $("testNote").hidden = me.plan !== "test";
       loadGifts();
       if (me.lastTikTok && !$("username").value) $("username").value = me.lastTikTok;
       refreshStatus().then(maybeAutoConnect);
@@ -411,7 +437,37 @@
       if (idle && $("username").value.trim()) $("connectForm").requestSubmit();
     }
 
+    let currentPlan = null;
+
+    function renderRecent(list) {
+      const ul = $("recentList");
+      ul.innerHTML = "";
+      if (!list || !list.length) {
+        const li = document.createElement("li");
+        li.className = "empty";
+        li.textContent = "No gifts yet.";
+        ul.appendChild(li);
+        return;
+      }
+      const label = { game: "sent to game", "web-only": "test only", "queue-full": "queue full" };
+      for (const g of list.slice(0, 10)) {
+        const li = document.createElement("li");
+        const time = document.createElement("span");
+        time.className = "time";
+        time.textContent = new Date(g.at).toLocaleTimeString();
+        const what = document.createElement("span");
+        what.className = "what";
+        what.textContent = `@${g.username} sent ${g.giftName} → ${g.ability}` + (g.source === "mock" ? " (mock)" : "");
+        const state = document.createElement("span");
+        state.className = "tag " + (g.delivery === "game" ? "ok" : g.delivery === "queue-full" ? "bad" : "");
+        state.textContent = label[g.delivery] || g.delivery;
+        li.append(time, what, state);
+        ul.appendChild(li);
+      }
+    }
+
     function renderStatus(s) {
+      renderRecent(s.recent);
       const connecting = s.state === "connecting";
       const connected = s.state === "connected";
       const active = connecting || connected;
@@ -424,7 +480,9 @@
       $("disconnectBtn").textContent = connecting ? "Cancel" : "Disconnect";
 
       if (connected) {
-        setStatus(`Connected to @${s.username} · gifts seen ${s.giftsSeen}, queued ${s.giftsQueued}`, "connected");
+        setStatus(currentPlan === "test"
+          ? `Connected to @${s.username} · gifts seen ${s.giftsSeen}`
+          : `Connected to @${s.username} · gifts seen ${s.giftsSeen}, queued ${s.giftsQueued}`, "connected");
       } else if (connecting) {
         setStatus(`Connecting to @${s.username}...`, "idle");
       } else if (s.lastError) {
@@ -501,7 +559,10 @@
           body: JSON.stringify({ giftName: $("mockGift").value, username: "MockViewer", repeatCount: 1 })
         });
         const e = result.created[0];
-        $("mockResult").textContent = `Queued #${e.id}: ${e.giftName} → ${e.ability}`;
+        $("mockResult").textContent = currentPlan === "test"
+          ? `Test only (not sent to game): ${e.giftName} → ${e.ability}`
+          : `Queued #${e.id}: ${e.giftName} → ${e.ability}`;
+        refreshStatus();
       } catch (error) {
         $("mockResult").textContent = error.message;
       } finally {
@@ -571,10 +632,15 @@
         for (const t of tenants) {
           const tr = document.createElement("tr");
           tr.appendChild(td(t.id));
-          tr.appendChild(td(t.robloxName));
+          tr.appendChild(td(t.robloxName || "—"));
           tr.appendChild(td(t.active ? tag("Active", "ok") : tag(t.disabled ? "Disabled" : "Expired", "bad")));
           tr.appendChild(td(t.tiktok ? `@${t.tiktok.username} (${t.tiktok.state})` : "—"));
-          tr.appendChild(td(fmtDate(t.expiresAt)));
+          if (t.plan === "lifetime") tr.appendChild(td(tag("Lifetime", "ok")));
+          else if (t.plan === "test") {
+            const cell = td(tag("Test", ""));
+            if (t.expiresAt) cell.append(" " + fmtDate(t.expiresAt));
+            tr.appendChild(cell);
+          } else tr.appendChild(td(fmtDate(t.expiresAt)));
           tr.appendChild(td(String(t.queued)));
 
           const actions = document.createElement("div");
@@ -586,13 +652,37 @@
           })));
           actions.appendChild(btn(t.disabled ? "Enable" : "Disable", "", () => act(() =>
             api(`/api/admin/tenants/${encodeURIComponent(t.id)}`, { method: "PATCH", body: JSON.stringify({ disabled: !t.disabled }) }))));
-          actions.appendChild(btn("+30d", "", () => act(() =>
-            api(`/api/admin/tenants/${encodeURIComponent(t.id)}`, { method: "PATCH", body: JSON.stringify({ extendDays: 30 }) }))));
-          actions.appendChild(btn("Roblox…", "", () => act(async () => {
-            const name = prompt("New Roblox username for " + t.id, t.robloxName);
-            if (!name) return;
-            await api(`/api/admin/tenants/${encodeURIComponent(t.id)}`, { method: "PATCH", body: JSON.stringify({ robloxName: name }) });
-          })));
+          const url = `/api/admin/tenants/${encodeURIComponent(t.id)}`;
+          const patch = (body) => api(url, { method: "PATCH", body: JSON.stringify(body) });
+          // บัญชี Test ต้องได้ชื่อ Roblox ก่อนเปลี่ยนเป็นเช่าหรือซื้อขาด
+          const askRoblox = () => t.plan === "test" ? prompt(`Roblox username for ${t.id}:`, "") : undefined;
+          if (t.expiresAt) {
+            actions.appendChild(btn("+30d", "", () => act(() => patch({ extendDays: 30 }))));
+          }
+          if (t.plan !== "lifetime") {
+            actions.appendChild(btn("Lifetime", "", () => act(async () => {
+              if (!confirm(`Make ${t.id} lifetime (never expires)?`)) return;
+              const robloxName = askRoblox();
+              if (robloxName === null || robloxName === "") return;
+              await patch({ plan: "lifetime", ...(robloxName ? { robloxName } : {}) });
+            })));
+          }
+          if (t.plan !== "rental") {
+            actions.appendChild(btn("To rental…", "", () => act(async () => {
+              const days = prompt(`Change ${t.id} to rental. Days from now:`, "30");
+              if (!days) return;
+              const robloxName = askRoblox();
+              if (robloxName === null || robloxName === "") return;
+              await patch({ plan: "rental", days: Number(days), ...(robloxName ? { robloxName } : {}) });
+            })));
+          }
+          if (t.plan !== "test") {
+            actions.appendChild(btn("Roblox…", "", () => act(async () => {
+              const name = prompt("New Roblox username for " + t.id, t.robloxName);
+              if (!name) return;
+              await patch({ robloxName: name });
+            })));
+          }
           actions.appendChild(btn("Delete", "danger", () => act(async () => {
             if (!confirm(`Delete ${t.id}? This cannot be undone.`)) return;
             await api(`/api/admin/tenants/${encodeURIComponent(t.id)}`, { method: "DELETE" });
@@ -614,6 +704,7 @@
           body: JSON.stringify({
             id: $("newId").value.trim(),
             robloxName: $("newRoblox").value.trim(),
+            plan: $("newPlan").value,
             days: Number($("newDays").value || 0)
           })
         });
@@ -624,6 +715,17 @@
       } catch (error) {
         adminMsg(error.message);
       }
+    });
+
+    $("newPlan").addEventListener("change", () => {
+      const plan = $("newPlan").value;
+      $("newDays").disabled = plan === "lifetime";
+      $("newDays").min = plan === "test" ? "0" : "1";
+      const rb = $("newRoblox");
+      rb.disabled = plan === "test";
+      rb.required = plan !== "test";
+      if (plan === "test") rb.value = "";
+      rb.placeholder = plan === "test" ? "Not needed for Test" : "RobloxName";
     });
 
     $("randomBtn").addEventListener("click", async () => {
