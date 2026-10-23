@@ -220,7 +220,8 @@
       </div>
 
       <div id="testNote" class="note" hidden style="margin-top:14px;color:#b7b7c5">
-        Test account: gifts are shown below only. They are not sent to the Roblox game.
+        This test account has no Roblox username, so gifts are shown below only.
+        Ask the admin to add your Roblox username to test in the real game.
       </div>
 
       <div id="status" class="status" data-state="idle" role="status" aria-live="polite">
@@ -253,7 +254,7 @@
           <select id="newPlan" class="boxed">
             <option value="rental">Rental (days)</option>
             <option value="lifetime">Lifetime (buy)</option>
-            <option value="test">Test (no Roblox)</option>
+            <option value="test">Test (free trial)</option>
           </select></div>
         <div><label for="newDays">Days</label>
           <input id="newDays" class="boxed" type="number" min="1" max="3650" value="30" /></div>
@@ -409,11 +410,13 @@
       const b = document.createElement("b");
       b.textContent = me.id;
       currentPlan = me.plan;
+      currentRoblox = me.robloxName;
       const access = me.plan === "lifetime" ? "Access: Lifetime"
         : me.expiresAt ? `Access until: ${fmtDate(me.expiresAt)}` : "No expiry";
-      const roblox = me.plan === "test" ? "Test account" : `Roblox: ${me.robloxName}`;
+      const roblox = (me.plan === "test" ? "Test account · " : "") +
+        (me.robloxName ? `Roblox: ${me.robloxName}` : "No Roblox (web only)");
       $("tenantWho").append("Signed in as ", b, ` · ${roblox} · ${access}`);
-      $("testNote").hidden = me.plan !== "test";
+      $("testNote").hidden = !!me.robloxName;
       loadGifts();
       if (me.lastTikTok && !$("username").value) $("username").value = me.lastTikTok;
       refreshStatus().then(maybeAutoConnect);
@@ -438,6 +441,7 @@
     }
 
     let currentPlan = null;
+    let currentRoblox = null;
 
     function renderRecent(list) {
       const ul = $("recentList");
@@ -449,7 +453,7 @@
         ul.appendChild(li);
         return;
       }
-      const label = { game: "sent to game", "web-only": "test only", "queue-full": "queue full" };
+      const label = { game: "sent to game", "web-only": "web only", "queue-full": "queue full" };
       for (const g of list.slice(0, 10)) {
         const li = document.createElement("li");
         const time = document.createElement("span");
@@ -480,7 +484,7 @@
       $("disconnectBtn").textContent = connecting ? "Cancel" : "Disconnect";
 
       if (connected) {
-        setStatus(currentPlan === "test"
+        setStatus(!currentRoblox
           ? `Connected to @${s.username} · gifts seen ${s.giftsSeen}`
           : `Connected to @${s.username} · gifts seen ${s.giftsSeen}, queued ${s.giftsQueued}`, "connected");
       } else if (connecting) {
@@ -559,8 +563,8 @@
           body: JSON.stringify({ giftName: $("mockGift").value, username: "MockViewer", repeatCount: 1 })
         });
         const e = result.created[0];
-        $("mockResult").textContent = currentPlan === "test"
-          ? `Test only (not sent to game): ${e.giftName} → ${e.ability}`
+        $("mockResult").textContent = !currentRoblox
+          ? `Web only (no Roblox username): ${e.giftName} → ${e.ability}`
           : `Queued #${e.id}: ${e.giftName} → ${e.ability}`;
         refreshStatus();
       } catch (error) {
@@ -655,7 +659,7 @@
           const url = `/api/admin/tenants/${encodeURIComponent(t.id)}`;
           const patch = (body) => api(url, { method: "PATCH", body: JSON.stringify(body) });
           // บัญชี Test ต้องได้ชื่อ Roblox ก่อนเปลี่ยนเป็นเช่าหรือซื้อขาด
-          const askRoblox = () => t.plan === "test" ? prompt(`Roblox username for ${t.id}:`, "") : undefined;
+          const askRoblox = () => t.robloxName ? undefined : prompt(`Roblox username for ${t.id}:`, "");
           if (t.expiresAt) {
             actions.appendChild(btn("+30d", "", () => act(() => patch({ extendDays: 30 }))));
           }
@@ -676,13 +680,13 @@
               await patch({ plan: "rental", days: Number(days), ...(robloxName ? { robloxName } : {}) });
             })));
           }
-          if (t.plan !== "test") {
-            actions.appendChild(btn("Roblox…", "", () => act(async () => {
-              const name = prompt("New Roblox username for " + t.id, t.robloxName);
-              if (!name) return;
-              await patch({ robloxName: name });
-            })));
-          }
+          actions.appendChild(btn("Roblox…", "", () => act(async () => {
+            const hint = t.plan === "test" ? " (leave empty = web only)" : "";
+            const name = prompt(`Roblox username for ${t.id}${hint}`, t.robloxName || "");
+            if (name === null) return;
+            if (!name.trim() && t.plan !== "test") return;
+            await patch({ robloxName: name.trim() });
+          })));
           actions.appendChild(btn("Delete", "danger", () => act(async () => {
             if (!confirm(`Delete ${t.id}? This cannot be undone.`)) return;
             await api(`/api/admin/tenants/${encodeURIComponent(t.id)}`, { method: "DELETE" });
@@ -722,10 +726,8 @@
       $("newDays").disabled = plan === "lifetime";
       $("newDays").min = plan === "test" ? "0" : "1";
       const rb = $("newRoblox");
-      rb.disabled = plan === "test";
       rb.required = plan !== "test";
-      if (plan === "test") rb.value = "";
-      rb.placeholder = plan === "test" ? "Not needed for Test" : "RobloxName";
+      rb.placeholder = plan === "test" ? "Optional (to test in game)" : "RobloxName";
     });
 
     $("randomBtn").addEventListener("click", async () => {
