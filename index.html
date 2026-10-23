@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TikTok LIVE Connector</title>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 20px;
+      background: #0b0b10;
+      color: #f5f5f7;
+      font-family: Arial, sans-serif;
+    }
+
+    .panel {
+      width: 100%;
+      max-width: 430px;
+      padding: 30px;
+      border: 1px solid #292933;
+      border-radius: 18px;
+      background: #14141b;
+      box-shadow: 0 20px 60px #0006;
+    }
+
+    .logo {
+      display: inline-block;
+      padding: 8px 12px;
+      border-radius: 10px;
+      background: #252530;
+      color: #ff4f91;
+      font-weight: bold;
+      letter-spacing: 1px;
+    }
+
+    h1 {
+      margin: 22px 0 8px;
+      font-size: 27px;
+    }
+
+    .description {
+      margin: 0 0 25px;
+      color: #a5a5b5;
+      line-height: 1.6;
+      font-size: 14px;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 9px;
+      font-size: 14px;
+      font-weight: bold;
+    }
+
+    .input-wrap {
+      display: flex;
+      align-items: center;
+      padding: 0 13px;
+      border: 1px solid #383844;
+      border-radius: 10px;
+      background: #0e0e14;
+    }
+
+    .prefix {
+      color: #9999aa;
+    }
+
+    input {
+      width: 100%;
+      padding: 14px 8px;
+      border: 0;
+      outline: 0;
+      background: transparent;
+      color: white;
+      font-size: 15px;
+    }
+
+    input:focus-visible {
+      outline: 2px solid #ff4f91;
+      outline-offset: 3px;
+      border-radius: 4px;
+    }
+
+    button {
+      width: 100%;
+      margin-top: 14px;
+      padding: 14px;
+      border: 0;
+      border-radius: 10px;
+      background: #ff4f91;
+      color: white;
+      font-size: 15px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    button:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+
+    .disconnect {
+      background: #30303c;
+    }
+
+    .status {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-top: 22px;
+      padding: 13px;
+      border-radius: 10px;
+      background: #0e0e14;
+      color: #b7b7c5;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .dot {
+      flex-shrink: 0;
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: #858595;
+    }
+
+    .status[data-state="connected"] .dot {
+      background: #39d98a;
+    }
+
+    .status[data-state="error"] .dot {
+      background: #ff626e;
+    }
+
+    .note {
+      margin-top: 18px;
+      color: #777786;
+      font-size: 12px;
+      line-height: 1.6;
+    }
+
+    [hidden] { display: none !important; }
+
+    .field { margin-bottom: 14px; }
+
+    select {
+      width: 100%;
+      padding: 12px;
+      border: 1px solid #383844;
+      border-radius: 10px;
+      background: #0e0e14;
+      color: white;
+      font-size: 14px;
+    }
+
+    input[type="password"] {
+      border: 1px solid #383844;
+      border-radius: 10px;
+      background: #0e0e14;
+      padding: 14px;
+    }
+
+    .secondary { background: #30303c; }
+
+    .mock {
+      margin-top: 22px;
+      padding-top: 18px;
+      border-top: 1px solid #292933;
+    }
+
+    .mock h2 { margin: 0 0 10px; font-size: 14px; color: #a5a5b5; }
+    .mock-result { margin-top: 10px; font-size: 12px; color: #777786; min-height: 1.4em; }
+  </style>
+</head>
+
+<body>
+  <main class="panel">
+    <div class="logo">LIVE BRIDGE</div>
+
+    <h1>TikTok Connector</h1>
+    <p class="description">
+      Connect your TikTok LIVE to your Roblox game.
+      Enter your TikTok username to get started.
+    </p>
+
+    <!-- Login -->
+    <form id="loginForm" hidden>
+      <label for="password">Admin Password</label>
+      <input id="password" type="password" autocomplete="current-password" required />
+      <button id="loginBtn" type="submit">Log in</button>
+    </form>
+
+    <!-- Connect / Disconnect -->
+    <section id="app" hidden>
+      <form id="connectForm">
+        <label for="username">TikTok Username</label>
+
+        <div class="input-wrap">
+          <span class="prefix">@</span>
+          <input
+            id="username"
+            name="username"
+            type="text"
+            placeholder="your_username"
+            maxlength="24"
+            autocomplete="off"
+            required
+          />
+        </div>
+
+        <button id="connectBtn" type="submit">Connect to LIVE</button>
+        <button id="disconnectBtn" class="disconnect" type="button" hidden>Disconnect</button>
+      </form>
+
+      <div class="mock">
+        <h2>Mock Gift (testing)</h2>
+        <div class="field">
+          <select id="mockGift" aria-label="Mock gift"></select>
+        </div>
+        <button id="mockBtn" class="secondary" type="button">Send mock gift</button>
+        <div id="mockResult" class="mock-result" role="status" aria-live="polite"></div>
+      </div>
+    </section>
+
+    <div
+      id="status"
+      class="status"
+      data-state="idle"
+      role="status"
+      aria-live="polite"
+    >
+      <span class="dot"></span>
+      <span id="statusText">Checking...</span>
+    </div>
+
+    <p class="note">
+      Your TikTok account must be LIVE for the bridge
+      to receive live events. Connection availability
+      depends on the TikTok connection service.
+    </p>
+  </main>
+
+  <script>
+    const loginForm = document.getElementById("loginForm");
+    const passwordInput = document.getElementById("password");
+    const appSection = document.getElementById("app");
+    const form = document.getElementById("connectForm");
+    const usernameInput = document.getElementById("username");
+    const connectBtn = document.getElementById("connectBtn");
+    const disconnectBtn = document.getElementById("disconnectBtn");
+    const status = document.getElementById("status");
+    const statusText = document.getElementById("statusText");
+    const mockGift = document.getElementById("mockGift");
+    const mockBtn = document.getElementById("mockBtn");
+    const mockResult = document.getElementById("mockResult");
+
+    let pollTimer = null;
+    let busy = false; // กำลังรอ Response ของ connect/disconnect
+
+    function setStatus(message, state = "idle") {
+      statusText.textContent = message;
+      status.dataset.state = state;
+    }
+
+    async function api(path, options = {}) {
+      const response = await fetch(path, {
+        ...options,
+        headers: { "Content-Type": "application/json", ...(options.headers || {}) }
+      });
+      const data = await response.json().catch(() => ({}));
+      if (response.status === 401 && path !== "/api/login") showLogin();
+      if (!response.ok) {
+        const err = new Error(data.error || "Request failed.");
+        err.status = response.status;
+        throw err;
+      }
+      return data;
+    }
+
+    function showLogin() {
+      clearInterval(pollTimer);
+      pollTimer = null;
+      appSection.hidden = true;
+      loginForm.hidden = false;
+      setStatus("Please log in.", "idle");
+    }
+
+    function showApp() {
+      loginForm.hidden = true;
+      appSection.hidden = false;
+      loadGifts();
+      refreshStatus();
+      clearInterval(pollTimer);
+      pollTimer = setInterval(refreshStatus, 3000);
+    }
+
+    // แสดงสถานะจาก Backend จริง
+    function render(s) {
+      const connecting = s.state === "connecting";
+      const connected = s.state === "connected";
+      const active = connecting || connected;
+
+      usernameInput.disabled = active;
+      if (s.username) usernameInput.value = s.username;
+      connectBtn.hidden = active;
+      disconnectBtn.hidden = !active;
+      disconnectBtn.textContent = connecting ? "Cancel" : "Disconnect";
+
+      if (connected) {
+        setStatus(
+          `Connected to @${s.username} · gifts seen ${s.giftsSeen}, queued ${s.giftsQueued}`,
+          "connected"
+        );
+      } else if (connecting) {
+        setStatus(`Connecting to @${s.username}...`, "idle");
+      } else if (s.lastError) {
+        setStatus(s.lastError, "error");
+      } else {
+        setStatus("Not connected", "idle");
+      }
+    }
+
+    async function refreshStatus() {
+      if (busy) return;
+      try {
+        render(await api("/api/status"));
+      } catch (error) {
+        if (error.status !== 401) setStatus("Unable to reach the backend.", "error");
+      }
+    }
+
+    async function loadGifts() {
+      try {
+        const data = await api("/api/gifts");
+        mockGift.innerHTML = "";
+        for (const name of data.gifts) {
+          const opt = document.createElement("option");
+          opt.value = name;
+          opt.textContent = name;
+          mockGift.appendChild(opt);
+        }
+      } catch {}
+    }
+
+    loginForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      try {
+        await api("/api/login", {
+          method: "POST",
+          body: JSON.stringify({ password: passwordInput.value })
+        });
+        passwordInput.value = "";
+        showApp();
+      } catch (error) {
+        setStatus(error.message, "error");
+      }
+    });
+
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+
+      const username = usernameInput.value.trim().replace(/^@/, "");
+      if (!/^[a-zA-Z0-9._]{1,24}$/.test(username)) {
+        setStatus("Please enter a valid TikTok username.", "error");
+        return;
+      }
+
+      busy = true;
+      connectBtn.disabled = true;
+      setStatus(`Connecting to @${username}...`);
+
+      try {
+        const result = await api("/api/connect", {
+          method: "POST",
+          body: JSON.stringify({ username })
+        });
+        render(result.status);
+      } catch (error) {
+        setStatus(error.message || "Unable to reach the backend.", "error");
+      } finally {
+        busy = false;
+        connectBtn.disabled = false;
+        refreshStatus();
+      }
+    });
+
+    disconnectBtn.addEventListener("click", async () => {
+      busy = true;
+      disconnectBtn.disabled = true;
+      setStatus("Disconnecting...");
+      try {
+        await api("/api/disconnect", { method: "POST" });
+      } catch (error) {
+        setStatus(error.message || "Unable to disconnect.", "error");
+      } finally {
+        busy = false;
+        disconnectBtn.disabled = false;
+        refreshStatus();
+      }
+    });
+
+    mockBtn.addEventListener("click", async () => {
+      mockBtn.disabled = true;
+      try {
+        const result = await api("/api/test-gift", {
+          method: "POST",
+          body: JSON.stringify({ giftName: mockGift.value, username: "MockViewer", repeatCount: 1 })
+        });
+        const e = result.created[0];
+        mockResult.textContent = `Queued #${e.id}: ${e.giftName} → ${e.ability}`;
+      } catch (error) {
+        mockResult.textContent = error.message;
+      } finally {
+        mockBtn.disabled = false;
+      }
+    });
+
+    refreshStatus().then(() => {
+      // ถ้า status สำเร็จ (ล็อกอินแล้ว) ให้เปิดหน้าหลัก; ถ้า 401 api() จะเรียก showLogin เอง
+      if (loginForm.hidden === true && appSection.hidden === true) showApp();
+    });
+  </script>
+</body>
+</html>
