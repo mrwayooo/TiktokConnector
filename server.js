@@ -184,7 +184,7 @@ const key = (t) => t.id.toLowerCase();
 
 function findTenantByRoblox(name) {
   const n = String(name).toLowerCase();
-  for (const t of tenants.values()) if (t.robloxName.toLowerCase() === n) return t;
+  for (const t of tenants.values()) if (t.robloxName && t.robloxName.toLowerCase() === n) return t;
   return null;
 }
 
@@ -215,14 +215,24 @@ function getRuntime(k) {
       giftsQueued: 0,
       lastError: null,
       streaks: new Map(),
+      recent: [], // Gift ล่าสุด แสดงบนหน้าเว็บของผู้ใช้
     };
     runtimes.set(k, rt);
   }
   return rt;
 }
 
+const RECENT_MAX = 20;
+
+// บัญชี Test ไม่มีชื่อ Roblox: Gift แสดงบนหน้าเว็บอย่างเดียว ไม่เข้าคิวของเกม
+function isTestRuntime(rt) {
+  const t = tenants.get(rt.key);
+  return !!t && planOf(t) === 'test';
+}
+
 function enqueue(rt, { giftName, ability, username, source }) {
-  if (rt.events.length >= MAX_QUEUE) return null;
+  const test = isTestRuntime(rt);
+  const full = !test && rt.events.length >= MAX_QUEUE;
   const event = {
     id: `${BOOT_ID}-${nextId++}`,
     type: 'GIFT',
@@ -232,7 +242,18 @@ function enqueue(rt, { giftName, ability, username, source }) {
     createdAt: Date.now(),
     source,
   };
-  rt.events.push(event);
+  rt.recent.unshift({
+    id: event.id,
+    giftName,
+    ability,
+    username,
+    source,
+    at: event.createdAt,
+    delivery: test ? 'web-only' : full ? 'queue-full' : 'game',
+  });
+  if (rt.recent.length > RECENT_MAX) rt.recent.length = RECENT_MAX;
+  if (full) return null;
+  if (!test) rt.events.push(event);
   return event;
 }
 
@@ -246,6 +267,7 @@ function publicStatus(rt) {
     giftsQueued: rt.giftsQueued,
     queuedEvents: rt.events.length,
     lastError: rt.lastError,
+    recent: rt.recent,
   };
 }
 
@@ -545,6 +567,7 @@ app.get('/api/me', requireAuth, (req, res) => {
     id: t.id,
     robloxName: t.robloxName,
     expiresAt: t.expiresAt,
+    plan: planOf(t),
     lastTikTok: t.lastTikTok ?? null,
   });
 });
@@ -662,7 +685,7 @@ app.post('/api/test-gift', (req, res) => {
       allowedGifts: Object.keys(GIFT_TO_ABILITY),
     });
   }
-  if (rt.events.length + repeatCount > MAX_QUEUE) {
+  if (!isTestRuntime(rt) && rt.events.length + repeatCount > MAX_QUEUE) {
     return res.status(429).json({ error: 'Event queue full' });
   }
 
@@ -676,6 +699,11 @@ app.post('/api/test-gift', (req, res) => {
 /* ------------------------------------------------------------------ */
 /* Admin: จัดการผู้เช่า                                                */
 /* ------------------------------------------------------------------ */
+// lifetime = ซื้อขาด (ไม่มีวันหมดอายุ), rental = เช่า (มีวันหมดอายุ)
+function planOf(t) {
+  return t.plan ?? (t.expiresAt ? 'rental' : 'lifetime');
+}
+
 function publicTenant(t) {
   const rt = runtimes.get(key(t));
   return {
@@ -683,6 +711,7 @@ function publicTenant(t) {
     robloxName: t.robloxName,
     createdAt: t.createdAt,
     expiresAt: t.expiresAt,
+    plan: planOf(t),
     disabled: !!t.disabled,
     active: isActive(t),
     tiktok: rt && rt.state !== 'idle' ? { state: rt.state, username: rt.username } : null,
@@ -704,26 +733,29 @@ app.get('/api/admin/tenants', requireAdmin, (_req, res) => {
 app.post('/api/admin/tenants', requireAdmin, async (req, res) => {
   const id = typeof req.body?.id === 'string' ? req.body.id.trim() : '';
   const robloxName = typeof req.body?.robloxName === 'string' ? req.body.robloxName.trim() : '';
-  const days = parseDays(req.body?.days);
+  const plan = ['lifetime', 'rental', 'test'].includes(req.body?.plan) ? req.body.plan : null;
+  const days = plan === 'lifetime' ? null : parseDays(req.body?.days);
 
   if (!/^[A-Za-z0-9_-]{1,32}$/.test(id) || id.toLowerCase() === 'admin') {
     return res.status(400).json({ error: 'ID must be 1-32 chars (A-Z, 0-9, _ -) and not "admin".' });
   }
-  if (!/^[A-Za-z0-9_]{3,20}$/.test(robloxName)) {
+  if (plan !== 'test' && !/^[A-Za-z0-9_]{3,20}$/.test(robloxName)) {
     return res.status(400).json({ error: 'Invalid Roblox username (3-20 chars: letters, numbers, _).' });
   }
   if (days === undefined) return res.status(400).json({ error: 'Days must be between 0 and 3650.' });
+  if (plan === 'rental' && !days) return res.status(400).json({ error: 'Rental needs a number of days (1-3650).' });
   if (tenants.has(id.toLowerCase())) return res.status(409).json({ error: 'This ID already exists.' });
-  if (findTenantByRoblox(robloxName)) {
+  if (plan !== 'test' && findTenantByRoblox(robloxName)) {
     return res.status(409).json({ error: 'This Roblox username is already assigned to another tenant.' });
   }
 
   const password = newPassword();
   const t = {
     id,
-    robloxName,
+    robloxName: plan === 'test' ? null : robloxName, // บัญชี Test ไม่ผูก Roblox
     ...hashPassword(password),
     createdAt: Date.now(),
+    plan: plan === 'test' ? 'test' : days ? 'rental' : 'lifetime',
     expiresAt: days ? Date.now() + days * 86400000 : null,
     disabled: false,
   };
@@ -742,6 +774,9 @@ app.patch('/api/admin/tenants/:id', requireAdmin, async (req, res) => {
   const t = { ...current }; // แก้บนสำเนา บันทึกสำเร็จค่อยใช้จริง
   const body = req.body ?? {};
 
+  if (body.robloxName !== undefined && planOf(current) === 'test' && body.plan === undefined) {
+    return res.status(400).json({ error: 'Test accounts have no Roblox username. Change the plan to Rental or Lifetime first.' });
+  }
   if (body.robloxName !== undefined) {
     const name = String(body.robloxName).trim();
     if (!/^[A-Za-z0-9_]{3,20}$/.test(name)) {
@@ -753,7 +788,27 @@ app.patch('/api/admin/tenants/:id', requireAdmin, async (req, res) => {
     }
     t.robloxName = name;
   }
+  if (body.plan === 'lifetime') {
+    // เปลี่ยนเป็นซื้อขาด: ไม่มีวันหมดอายุ
+    t.plan = 'lifetime';
+    t.expiresAt = null;
+  } else if (body.plan === 'rental') {
+    const n = Number(body.days);
+    if (!Number.isFinite(n) || n <= 0 || n > 3650) {
+      return res.status(400).json({ error: 'Rental needs a number of days (1-3650).' });
+    }
+    t.plan = 'rental';
+    t.expiresAt = Date.now() + n * 86400000;
+  } else if (body.plan !== undefined) {
+    return res.status(400).json({ error: 'plan must be "lifetime" or "rental".' });
+  }
+  if (body.plan !== undefined && !t.robloxName) {
+    return res.status(400).json({ error: 'A Roblox username is required for Rental or Lifetime.' });
+  }
   if (body.extendDays !== undefined) {
+    if (!t.expiresAt) {
+      return res.status(400).json({ error: 'This account does not expire.' });
+    }
     const n = Number(body.extendDays);
     if (!Number.isFinite(n) || n <= 0 || n > 3650) {
       return res.status(400).json({ error: 'extendDays must be between 1 and 3650.' });
