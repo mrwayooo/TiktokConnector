@@ -224,10 +224,11 @@ function getRuntime(k) {
 
 const RECENT_MAX = 20;
 
-// บัญชี Test ไม่มีชื่อ Roblox: Gift แสดงบนหน้าเว็บอย่างเดียว ไม่เข้าคิวของเกม
+// บัญชีที่ไม่มีชื่อ Roblox (บัญชี Test ที่ไม่ได้ใส่ชื่อ): Gift แสดงบนหน้าเว็บอย่างเดียว
+// บัญชี Test ที่ใส่ชื่อ Roblox: Gift เข้าเกมจริงเหมือนบัญชีปกติ
 function isTestRuntime(rt) {
   const t = tenants.get(rt.key);
-  return !!t && planOf(t) === 'test';
+  return !!t && !t.robloxName;
 }
 
 function enqueue(rt, { giftName, ability, username, source }) {
@@ -739,20 +740,21 @@ app.post('/api/admin/tenants', requireAdmin, async (req, res) => {
   if (!/^[A-Za-z0-9_-]{1,32}$/.test(id) || id.toLowerCase() === 'admin') {
     return res.status(400).json({ error: 'ID must be 1-32 chars (A-Z, 0-9, _ -) and not "admin".' });
   }
-  if (plan !== 'test' && !/^[A-Za-z0-9_]{3,20}$/.test(robloxName)) {
+  const needsRoblox = plan !== 'test' || robloxName !== '';
+  if (needsRoblox && !/^[A-Za-z0-9_]{3,20}$/.test(robloxName)) {
     return res.status(400).json({ error: 'Invalid Roblox username (3-20 chars: letters, numbers, _).' });
   }
   if (days === undefined) return res.status(400).json({ error: 'Days must be between 0 and 3650.' });
   if (plan === 'rental' && !days) return res.status(400).json({ error: 'Rental needs a number of days (1-3650).' });
   if (tenants.has(id.toLowerCase())) return res.status(409).json({ error: 'This ID already exists.' });
-  if (plan !== 'test' && findTenantByRoblox(robloxName)) {
+  if (needsRoblox && findTenantByRoblox(robloxName)) {
     return res.status(409).json({ error: 'This Roblox username is already assigned to another tenant.' });
   }
 
   const password = newPassword();
   const t = {
     id,
-    robloxName: plan === 'test' ? null : robloxName, // บัญชี Test ไม่ผูก Roblox
+    robloxName: robloxName || null, // บัญชี Test ไม่ใส่ชื่อได้ (Gift แสดงบนเว็บอย่างเดียว)
     ...hashPassword(password),
     createdAt: Date.now(),
     plan: plan === 'test' ? 'test' : days ? 'rental' : 'lifetime',
@@ -774,10 +776,9 @@ app.patch('/api/admin/tenants/:id', requireAdmin, async (req, res) => {
   const t = { ...current }; // แก้บนสำเนา บันทึกสำเร็จค่อยใช้จริง
   const body = req.body ?? {};
 
-  if (body.robloxName !== undefined && planOf(current) === 'test' && body.plan === undefined) {
-    return res.status(400).json({ error: 'Test accounts have no Roblox username. Change the plan to Rental or Lifetime first.' });
-  }
-  if (body.robloxName !== undefined) {
+  if (body.robloxName !== undefined && String(body.robloxName).trim() === '' && planOf(current) === 'test' && body.plan === undefined) {
+    t.robloxName = null; // บัญชี Test ล้างชื่อ Roblox ได้ (กลับเป็นแสดงบนเว็บอย่างเดียว)
+  } else if (body.robloxName !== undefined) {
     const name = String(body.robloxName).trim();
     if (!/^[A-Za-z0-9_]{3,20}$/.test(name)) {
       return res.status(400).json({ error: 'Invalid Roblox username.' });
