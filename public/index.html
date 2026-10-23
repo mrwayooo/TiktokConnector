@@ -6,9 +6,8 @@
   <title>TikTok LIVE Connector</title>
 
   <style>
-    * {
-      box-sizing: border-box;
-    }
+    * { box-sizing: border-box; }
+    [hidden] { display: none !important; }
 
     body {
       margin: 0;
@@ -30,7 +29,9 @@
       background: #14141b;
       box-shadow: 0 20px 60px #0006;
     }
+    .panel.wide { max-width: 900px; }
 
+    .top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
     .logo {
       display: inline-block;
       padding: 8px 12px;
@@ -41,24 +42,14 @@
       letter-spacing: 1px;
     }
 
-    h1 {
-      margin: 22px 0 8px;
-      font-size: 27px;
-    }
+    h1 { margin: 22px 0 8px; font-size: 27px; }
+    h2 { margin: 0 0 10px; font-size: 14px; color: #a5a5b5; }
+    .description { margin: 0 0 20px; color: #a5a5b5; line-height: 1.6; font-size: 14px; }
+    .who { margin: 0 0 18px; color: #a5a5b5; font-size: 13px; line-height: 1.6; }
+    .who b { color: #f5f5f7; }
 
-    .description {
-      margin: 0 0 25px;
-      color: #a5a5b5;
-      line-height: 1.6;
-      font-size: 14px;
-    }
-
-    label {
-      display: block;
-      margin-bottom: 9px;
-      font-size: 14px;
-      font-weight: bold;
-    }
+    label { display: block; margin: 14px 0 9px; font-size: 14px; font-weight: bold; }
+    label:first-child { margin-top: 0; }
 
     .input-wrap {
       display: flex;
@@ -68,12 +59,9 @@
       border-radius: 10px;
       background: #0e0e14;
     }
+    .prefix { color: #9999aa; }
 
-    .prefix {
-      color: #9999aa;
-    }
-
-    input {
+    input, select {
       width: 100%;
       padding: 14px 8px;
       border: 0;
@@ -82,12 +70,18 @@
       color: white;
       font-size: 15px;
     }
-
-    input:focus-visible {
+    input:focus-visible, select:focus-visible {
       outline: 2px solid #ff4f91;
       outline-offset: 3px;
       border-radius: 4px;
     }
+    .boxed {
+      border: 1px solid #383844;
+      border-radius: 10px;
+      background: #0e0e14;
+      padding: 14px;
+    }
+    select.boxed option { background: #14141b; }
 
     button {
       width: 100%;
@@ -101,15 +95,18 @@
       font-weight: bold;
       cursor: pointer;
     }
-
-    button:disabled {
-      opacity: 0.55;
-      cursor: not-allowed;
-    }
-
-    .disconnect {
+    button:disabled { opacity: 0.55; cursor: not-allowed; }
+    .secondary { background: #30303c; }
+    .small {
+      width: auto;
+      margin: 0;
+      padding: 7px 10px;
+      font-size: 12px;
+      border-radius: 8px;
       background: #30303c;
     }
+    .small.danger { background: #6b2430; }
+    .small.pink { background: #ff4f91; }
 
     .status {
       display: flex;
@@ -123,151 +120,180 @@
       font-size: 13px;
       line-height: 1.5;
     }
+    .dot { flex-shrink: 0; width: 9px; height: 9px; border-radius: 50%; background: #858595; }
+    .status[data-state="connected"] .dot { background: #39d98a; }
+    .status[data-state="error"] .dot { background: #ff626e; }
 
-    .dot {
-      flex-shrink: 0;
-      width: 9px;
-      height: 9px;
-      border-radius: 50%;
-      background: #858595;
-    }
+    .check { display: flex; align-items: center; gap: 8px; margin: 12px 0 0; font-weight: normal; font-size: 13px; color: #b7b7c5; cursor: pointer; }
+    .check input { width: auto; padding: 0; accent-color: #ff4f91; }
+    .note { margin-top: 18px; color: #777786; font-size: 12px; line-height: 1.6; }
 
-    .status[data-state="connected"] .dot {
-      background: #39d98a;
-    }
-
-    .status[data-state="error"] .dot {
-      background: #ff626e;
-    }
-
-    .note {
-      margin-top: 18px;
-      color: #777786;
-      font-size: 12px;
-      line-height: 1.6;
-    }
-
-    [hidden] { display: none !important; }
-
-    .field { margin-bottom: 14px; }
-
-    select {
-      width: 100%;
-      padding: 12px;
-      border: 1px solid #383844;
-      border-radius: 10px;
-      background: #0e0e14;
-      color: white;
-      font-size: 14px;
-    }
-
-    input[type="password"] {
-      border: 1px solid #383844;
-      border-radius: 10px;
-      background: #0e0e14;
-      padding: 14px;
-    }
-
-    .secondary { background: #30303c; }
-
-    .mock {
-      margin-top: 22px;
-      padding-top: 18px;
-      border-top: 1px solid #292933;
-    }
-
-    .mock h2 { margin: 0 0 10px; font-size: 14px; color: #a5a5b5; }
+    .mock { margin-top: 22px; padding-top: 18px; border-top: 1px solid #292933; }
     .mock-result { margin-top: 10px; font-size: 12px; color: #777786; min-height: 1.4em; }
+
+    /* Admin */
+    .grid { display: grid; grid-template-columns: 1fr 1fr 110px auto; gap: 10px; align-items: end; }
+    .grid label { margin: 0 0 6px; font-size: 12px; }
+    .grid input { padding: 12px; }
+    @media (max-width: 700px) { .grid { grid-template-columns: 1fr; } }
+
+    .cred {
+      margin-top: 16px;
+      padding: 14px;
+      border: 1px solid #ff4f91;
+      border-radius: 10px;
+      background: #1b1320;
+      font-size: 13px;
+      line-height: 1.8;
+    }
+    .cred code { background: #0e0e14; padding: 2px 6px; border-radius: 6px; word-break: break-all; }
+    .cred .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+
+    .table-wrap { overflow-x: auto; margin-top: 8px; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th, td { padding: 10px 8px; border-bottom: 1px solid #292933; text-align: left; vertical-align: middle; }
+    th { color: #a5a5b5; font-weight: normal; font-size: 12px; }
+    td .actions { display: flex; gap: 6px; flex-wrap: wrap; }
+    .tag { padding: 2px 8px; border-radius: 999px; font-size: 11px; background: #252530; }
+    .tag.ok { background: #14352a; color: #39d98a; }
+    .tag.bad { background: #3a1a20; color: #ff626e; }
+    .section { margin-top: 26px; padding-top: 18px; border-top: 1px solid #292933; }
+    .msg { margin-top: 10px; font-size: 12px; color: #b7b7c5; min-height: 1.4em; }
   </style>
 </head>
 
 <body>
-  <main class="panel">
-    <div class="logo">LIVE BRIDGE</div>
+  <main class="panel" id="panel">
+    <div class="top">
+      <div class="logo">LIVE BRIDGE</div>
+      <button id="logoutBtn" class="small" type="button" hidden>Log out</button>
+    </div>
 
-    <h1>TikTok Connector</h1>
-    <p class="description">
-      Connect your TikTok LIVE to your Roblox game.
-      Enter your TikTok username to get started.
-    </p>
+    <!-- ============ Login ============ -->
+    <section id="loginView" hidden>
+      <h1>Sign in</h1>
+      <p class="description">Use the ID and password you received.</p>
+      <form id="loginForm">
+        <label for="loginId">ID</label>
+        <input id="loginId" class="boxed" type="text" autocomplete="username" maxlength="32" placeholder="Tester-001" required />
+        <label for="loginPw">Password</label>
+        <input id="loginPw" class="boxed" type="password" autocomplete="current-password" required />
+        <button type="submit">Log in</button>
+      </form>
+    </section>
 
-    <!-- Login -->
-    <form id="loginForm" hidden>
-      <label for="password">Admin Password</label>
-      <input id="password" type="password" autocomplete="current-password" required />
-      <button id="loginBtn" type="submit">Log in</button>
-    </form>
+    <!-- ============ Tenant ============ -->
+    <section id="tenantView" hidden>
+      <h1>TikTok Connector</h1>
+      <p class="who" id="tenantWho"></p>
+      <p class="description">
+        Connect your TikTok LIVE to your Roblox game.
+        Enter your TikTok username to get started.
+      </p>
 
-    <!-- Connect / Disconnect -->
-    <section id="app" hidden>
       <form id="connectForm">
         <label for="username">TikTok Username</label>
-
         <div class="input-wrap">
           <span class="prefix">@</span>
-          <input
-            id="username"
-            name="username"
-            type="text"
-            placeholder="your_username"
-            maxlength="24"
-            autocomplete="off"
-            required
-          />
+          <input id="username" name="username" type="text" placeholder="your_username"
+                 maxlength="24" autocomplete="off" required />
         </div>
-
         <button id="connectBtn" type="submit">Connect to LIVE</button>
-        <button id="disconnectBtn" class="disconnect" type="button" hidden>Disconnect</button>
+        <button id="disconnectBtn" class="secondary" type="button" hidden>Disconnect</button>
+        <label class="check" for="autoConnect">
+          <input id="autoConnect" type="checkbox" />
+          Connect automatically when I open this page
+        </label>
       </form>
 
       <div class="mock">
         <h2>Mock Gift (testing)</h2>
-        <div class="field">
-          <select id="mockGift" aria-label="Mock gift"></select>
-        </div>
+        <select id="mockGift" class="boxed" aria-label="Mock gift"></select>
         <button id="mockBtn" class="secondary" type="button">Send mock gift</button>
         <div id="mockResult" class="mock-result" role="status" aria-live="polite"></div>
       </div>
+
+      <div id="status" class="status" data-state="idle" role="status" aria-live="polite">
+        <span class="dot"></span>
+        <span id="statusText">Checking...</span>
+      </div>
+
+      <p class="note">
+        Your TikTok account must be LIVE for the bridge to receive live events.
+        Gifts only reach the Roblox account registered to your ID.
+      </p>
     </section>
 
-    <div
-      id="status"
-      class="status"
-      data-state="idle"
-      role="status"
-      aria-live="polite"
-    >
-      <span class="dot"></span>
-      <span id="statusText">Checking...</span>
-    </div>
+    <!-- ============ Admin ============ -->
+    <section id="adminView" hidden>
+      <h1>Admin</h1>
+      <p class="description">Create renter accounts. Passwords are random and shown only once.</p>
 
-    <p class="note">
-      Your TikTok account must be LIVE for the bridge
-      to receive live events. Connection availability
-      depends on the TikTok connection service.
-    </p>
+      <form id="createForm" class="grid">
+        <div><label for="newId">ID</label>
+          <input id="newId" class="boxed" type="text" maxlength="32" placeholder="Tester-001" required /></div>
+        <div><label for="newRoblox">Roblox username</label>
+          <input id="newRoblox" class="boxed" type="text" maxlength="20" placeholder="RobloxName" required /></div>
+        <div><label for="newDays">Days (0 = none)</label>
+          <input id="newDays" class="boxed" type="number" min="0" max="3650" value="30" /></div>
+        <button class="small pink" type="submit" style="padding:14px 16px">Create</button>
+      </form>
+      <div id="adminMsg" class="msg" role="status" aria-live="polite"></div>
+
+      <div id="credBox" class="cred" hidden>
+        <b>Copy these now — the password will not be shown again.</b>
+        <div class="row">ID: <code id="credId"></code> <button class="small" id="copyId" type="button">Copy</button></div>
+        <div class="row">Password: <code id="credPw"></code> <button class="small" id="copyPw" type="button">Copy</button></div>
+        <div class="row">Roblox: <code id="credRoblox"></code></div>
+      </div>
+
+      <div class="section">
+        <h2>Tenants</h2>
+        <div class="table-wrap">
+          <table>
+            <thead><tr>
+              <th>ID</th><th>Roblox</th><th>Status</th><th>TikTok</th><th>Expires</th><th>Queue</th><th></th>
+            </tr></thead>
+            <tbody id="tenantRows"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="section">
+        <h2>Random secret generator</h2>
+        <p class="note" style="margin-top:0">
+          Generates a random string to copy. To change <code>BRIDGE_API_KEY</code> or
+          <code>ADMIN_PASSWORD</code>, set it on the server environment and restart
+          (and put the same API key in the Roblox poller).
+        </p>
+        <div class="row" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <code id="randomValue" style="background:#0e0e14;padding:6px 8px;border-radius:6px;word-break:break-all"></code>
+          <button id="randomBtn" class="small" type="button">Generate</button>
+          <button id="randomCopy" class="small" type="button">Copy</button>
+        </div>
+      </div>
+    </section>
+
+    <div id="authStatus" class="status" data-state="idle" role="status" hidden>
+      <span class="dot"></span><span id="authStatusText"></span>
+    </div>
   </main>
 
   <script>
-    const loginForm = document.getElementById("loginForm");
-    const passwordInput = document.getElementById("password");
-    const appSection = document.getElementById("app");
-    const form = document.getElementById("connectForm");
-    const usernameInput = document.getElementById("username");
-    const connectBtn = document.getElementById("connectBtn");
-    const disconnectBtn = document.getElementById("disconnectBtn");
-    const status = document.getElementById("status");
-    const statusText = document.getElementById("statusText");
-    const mockGift = document.getElementById("mockGift");
-    const mockBtn = document.getElementById("mockBtn");
-    const mockResult = document.getElementById("mockResult");
-
+    const $ = (id) => document.getElementById(id);
+    const panel = $("panel");
     let pollTimer = null;
-    let busy = false; // กำลังรอ Response ของ connect/disconnect
+    let busy = false;
 
     function setStatus(message, state = "idle") {
-      statusText.textContent = message;
-      status.dataset.state = state;
+      $("statusText").textContent = message;
+      $("status").dataset.state = state;
+    }
+
+    function authMsg(message, state = "error") {
+      $("authStatus").hidden = !message;
+      $("authStatusText").textContent = message || "";
+      $("authStatus").dataset.state = state;
     }
 
     async function api(path, options = {}) {
@@ -285,40 +311,120 @@
       return data;
     }
 
-    function showLogin() {
-      clearInterval(pollTimer);
-      pollTimer = null;
-      appSection.hidden = true;
-      loginForm.hidden = false;
-      setStatus("Please log in.", "idle");
+    async function copyText(text, btn) {
+      try {
+        await navigator.clipboard.writeText(text);
+      } catch {
+        const ta = document.createElement("textarea");
+        ta.value = text;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand("copy");
+        ta.remove();
+      }
+      if (btn) {
+        const old = btn.textContent;
+        btn.textContent = "Copied";
+        setTimeout(() => (btn.textContent = old), 1200);
+      }
     }
 
-    function showApp() {
-      loginForm.hidden = true;
-      appSection.hidden = false;
-      loadGifts();
-      refreshStatus();
+    function fmtDate(ms) {
+      return ms ? new Date(ms).toLocaleString() : "No expiry";
+    }
+
+    function showView(name) {
       clearInterval(pollTimer);
+      pollTimer = null;
+      for (const v of ["login", "tenant", "admin"]) $(v + "View").hidden = v !== name;
+      panel.classList.toggle("wide", name === "admin");
+      $("logoutBtn").hidden = name === "login";
+      $("authStatus").hidden = true;
+    }
+
+    /* ---------------- Login ---------------- */
+    function showLogin() {
+      showView("login");
+    }
+
+    $("loginForm").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      try {
+        await api("/api/login", {
+          method: "POST",
+          body: JSON.stringify({ id: $("loginId").value.trim(), password: $("loginPw").value })
+        });
+        $("loginPw").value = "";
+        init();
+      } catch (error) {
+        authMsg(error.message);
+        $("authStatus").hidden = false;
+      }
+    });
+
+    $("logoutBtn").addEventListener("click", async () => {
+      try { await api("/api/logout", { method: "POST" }); } catch {}
+      $("credBox").hidden = true;
+      showLogin();
+    });
+
+    async function init() {
+      try {
+        const me = await api("/api/me");
+        if (me.role === "admin") showAdmin();
+        else showTenant(me);
+      } catch (error) {
+        if (error.status !== 401) {
+          showLogin();
+          authMsg("Unable to reach the backend.");
+        }
+      }
+    }
+
+    /* ---------------- Tenant ---------------- */
+    function showTenant(me) {
+      showView("tenant");
+      $("tenantWho").innerHTML = "";
+      const b = document.createElement("b");
+      b.textContent = me.id;
+      $("tenantWho").append("Signed in as ", b, ` · Roblox: ${me.robloxName} · Access until: ${fmtDate(me.expiresAt)}`);
+      loadGifts();
+      if (me.lastTikTok && !$("username").value) $("username").value = me.lastTikTok;
+      refreshStatus().then(maybeAutoConnect);
       pollTimer = setInterval(refreshStatus, 3000);
     }
 
-    // แสดงสถานะจาก Backend จริง
-    function render(s) {
+    // ตัวเลือก "เชื่อมอัตโนมัติ" เก็บไว้ในเบราว์เซอร์นี้
+    function getAuto() {
+      try { return localStorage.getItem("autoConnect") === "1"; } catch { return false; }
+    }
+    $("autoConnect").checked = getAuto();
+    $("autoConnect").addEventListener("change", () => {
+      try { localStorage.setItem("autoConnect", $("autoConnect").checked ? "1" : "0"); } catch {}
+    });
+
+    let autoTried = false;
+    function maybeAutoConnect() {
+      if (autoTried || !getAuto()) return;
+      autoTried = true;
+      const idle = !$("connectBtn").hidden; // ยังไม่ได้เชื่อม
+      if (idle && $("username").value.trim()) $("connectForm").requestSubmit();
+    }
+
+    function renderStatus(s) {
       const connecting = s.state === "connecting";
       const connected = s.state === "connected";
       const active = connecting || connected;
 
-      usernameInput.disabled = active;
-      if (s.username) usernameInput.value = s.username;
-      connectBtn.hidden = active;
-      disconnectBtn.hidden = !active;
-      disconnectBtn.textContent = connecting ? "Cancel" : "Disconnect";
+      $("username").disabled = active;
+      if (s.username) $("username").value = s.username;
+      else if (!$("username").value && s.lastTikTok) $("username").value = s.lastTikTok;
+      $("connectBtn").hidden = active;
+      $("disconnectBtn").hidden = !active;
+      $("disconnectBtn").textContent = connecting ? "Cancel" : "Disconnect";
 
       if (connected) {
-        setStatus(
-          `Connected to @${s.username} · gifts seen ${s.giftsSeen}, queued ${s.giftsQueued}`,
-          "connected"
-        );
+        setStatus(`Connected to @${s.username} · gifts seen ${s.giftsSeen}, queued ${s.giftsQueued}`, "connected");
       } else if (connecting) {
         setStatus(`Connecting to @${s.username}...`, "idle");
       } else if (s.lastError) {
@@ -331,7 +437,7 @@
     async function refreshStatus() {
       if (busy) return;
       try {
-        render(await api("/api/status"));
+        renderStatus(await api("/api/status"));
       } catch (error) {
         if (error.status !== 401) setStatus("Unable to reach the backend.", "error");
       }
@@ -340,61 +446,41 @@
     async function loadGifts() {
       try {
         const data = await api("/api/gifts");
-        mockGift.innerHTML = "";
-        for (const name of data.gifts) {
+        $("mockGift").innerHTML = "";
+        for (const g of data.gifts) {
           const opt = document.createElement("option");
-          opt.value = name;
-          opt.textContent = name;
-          mockGift.appendChild(opt);
+          opt.value = g.gift;
+          opt.textContent = `${g.gift} → ${g.ability}` + (g.implemented ? "" : " (not in Roblox yet)");
+          $("mockGift").appendChild(opt);
         }
       } catch {}
     }
 
-    loginForm.addEventListener("submit", async (event) => {
+    $("connectForm").addEventListener("submit", async (event) => {
       event.preventDefault();
-      try {
-        await api("/api/login", {
-          method: "POST",
-          body: JSON.stringify({ password: passwordInput.value })
-        });
-        passwordInput.value = "";
-        showApp();
-      } catch (error) {
-        setStatus(error.message, "error");
-      }
-    });
-
-    form.addEventListener("submit", async (event) => {
-      event.preventDefault();
-
-      const username = usernameInput.value.trim().replace(/^@/, "");
+      const username = $("username").value.trim().replace(/^@/, "");
       if (!/^[a-zA-Z0-9._]{1,24}$/.test(username)) {
         setStatus("Please enter a valid TikTok username.", "error");
         return;
       }
-
       busy = true;
-      connectBtn.disabled = true;
+      $("connectBtn").disabled = true;
       setStatus(`Connecting to @${username}...`);
-
       try {
-        const result = await api("/api/connect", {
-          method: "POST",
-          body: JSON.stringify({ username })
-        });
-        render(result.status);
+        const result = await api("/api/connect", { method: "POST", body: JSON.stringify({ username }) });
+        renderStatus(result.status);
       } catch (error) {
         setStatus(error.message || "Unable to reach the backend.", "error");
       } finally {
         busy = false;
-        connectBtn.disabled = false;
+        $("connectBtn").disabled = false;
         refreshStatus();
       }
     });
 
-    disconnectBtn.addEventListener("click", async () => {
+    $("disconnectBtn").addEventListener("click", async () => {
       busy = true;
-      disconnectBtn.disabled = true;
+      $("disconnectBtn").disabled = true;
       setStatus("Disconnecting...");
       try {
         await api("/api/disconnect", { method: "POST" });
@@ -402,31 +488,154 @@
         setStatus(error.message || "Unable to disconnect.", "error");
       } finally {
         busy = false;
-        disconnectBtn.disabled = false;
+        $("disconnectBtn").disabled = false;
         refreshStatus();
       }
     });
 
-    mockBtn.addEventListener("click", async () => {
-      mockBtn.disabled = true;
+    $("mockBtn").addEventListener("click", async () => {
+      $("mockBtn").disabled = true;
       try {
         const result = await api("/api/test-gift", {
           method: "POST",
-          body: JSON.stringify({ giftName: mockGift.value, username: "MockViewer", repeatCount: 1 })
+          body: JSON.stringify({ giftName: $("mockGift").value, username: "MockViewer", repeatCount: 1 })
         });
         const e = result.created[0];
-        mockResult.textContent = `Queued #${e.id}: ${e.giftName} → ${e.ability}`;
+        $("mockResult").textContent = `Queued #${e.id}: ${e.giftName} → ${e.ability}`;
       } catch (error) {
-        mockResult.textContent = error.message;
+        $("mockResult").textContent = error.message;
       } finally {
-        mockBtn.disabled = false;
+        $("mockBtn").disabled = false;
       }
     });
 
-    refreshStatus().then(() => {
-      // ถ้า status สำเร็จ (ล็อกอินแล้ว) ให้เปิดหน้าหลัก; ถ้า 401 api() จะเรียก showLogin เอง
-      if (loginForm.hidden === true && appSection.hidden === true) showApp();
+    /* ---------------- Admin ---------------- */
+    function showAdmin() {
+      showView("admin");
+      loadTenants();
+      pollTimer = setInterval(loadTenants, 5000);
+    }
+
+    function adminMsg(text) { $("adminMsg").textContent = text || ""; }
+
+    function showCreds(id, password, roblox) {
+      $("credId").textContent = id;
+      $("credPw").textContent = password;
+      $("credRoblox").textContent = roblox || "";
+      $("credBox").hidden = false;
+    }
+    $("copyId").addEventListener("click", (e) => copyText($("credId").textContent, e.target));
+    $("copyPw").addEventListener("click", (e) => copyText($("credPw").textContent, e.target));
+
+    function btn(label, cls, handler) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "small " + (cls || "");
+      b.textContent = label;
+      b.addEventListener("click", handler);
+      return b;
+    }
+
+    function td(content) {
+      const cell = document.createElement("td");
+      if (content instanceof Node) cell.appendChild(content);
+      else cell.textContent = content;
+      return cell;
+    }
+
+    function tag(text, cls) {
+      const s = document.createElement("span");
+      s.className = "tag " + cls;
+      s.textContent = text;
+      return s;
+    }
+
+    async function act(fn) {
+      try { adminMsg(""); await fn(); await loadTenants(); }
+      catch (error) { adminMsg(error.message); }
+    }
+
+    async function loadTenants() {
+      try {
+        const { tenants } = await api("/api/admin/tenants");
+        const body = $("tenantRows");
+        body.innerHTML = "";
+        if (!tenants.length) {
+          const tr = document.createElement("tr");
+          const c = td("No tenants yet.");
+          c.colSpan = 7;
+          tr.appendChild(c);
+          body.appendChild(tr);
+          return;
+        }
+        for (const t of tenants) {
+          const tr = document.createElement("tr");
+          tr.appendChild(td(t.id));
+          tr.appendChild(td(t.robloxName));
+          tr.appendChild(td(t.active ? tag("Active", "ok") : tag(t.disabled ? "Disabled" : "Expired", "bad")));
+          tr.appendChild(td(t.tiktok ? `@${t.tiktok.username} (${t.tiktok.state})` : "—"));
+          tr.appendChild(td(fmtDate(t.expiresAt)));
+          tr.appendChild(td(String(t.queued)));
+
+          const actions = document.createElement("div");
+          actions.className = "actions";
+          actions.appendChild(btn("Reset pw", "", () => act(async () => {
+            if (!confirm(`Reset password for ${t.id}?`)) return;
+            const r = await api(`/api/admin/tenants/${encodeURIComponent(t.id)}/reset-password`, { method: "POST" });
+            showCreds(r.id, r.password, t.robloxName);
+          })));
+          actions.appendChild(btn(t.disabled ? "Enable" : "Disable", "", () => act(() =>
+            api(`/api/admin/tenants/${encodeURIComponent(t.id)}`, { method: "PATCH", body: JSON.stringify({ disabled: !t.disabled }) }))));
+          actions.appendChild(btn("+30d", "", () => act(() =>
+            api(`/api/admin/tenants/${encodeURIComponent(t.id)}`, { method: "PATCH", body: JSON.stringify({ extendDays: 30 }) }))));
+          actions.appendChild(btn("Roblox…", "", () => act(async () => {
+            const name = prompt("New Roblox username for " + t.id, t.robloxName);
+            if (!name) return;
+            await api(`/api/admin/tenants/${encodeURIComponent(t.id)}`, { method: "PATCH", body: JSON.stringify({ robloxName: name }) });
+          })));
+          actions.appendChild(btn("Delete", "danger", () => act(async () => {
+            if (!confirm(`Delete ${t.id}? This cannot be undone.`)) return;
+            await api(`/api/admin/tenants/${encodeURIComponent(t.id)}`, { method: "DELETE" });
+          })));
+          tr.appendChild(td(actions));
+          body.appendChild(tr);
+        }
+      } catch (error) {
+        if (error.status !== 401) adminMsg("Unable to load tenants.");
+      }
+    }
+
+    $("createForm").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      adminMsg("");
+      try {
+        const r = await api("/api/admin/tenants", {
+          method: "POST",
+          body: JSON.stringify({
+            id: $("newId").value.trim(),
+            robloxName: $("newRoblox").value.trim(),
+            days: Number($("newDays").value || 0)
+          })
+        });
+        showCreds(r.tenant.id, r.password, r.tenant.robloxName);
+        $("newId").value = "";
+        $("newRoblox").value = "";
+        loadTenants();
+      } catch (error) {
+        adminMsg(error.message);
+      }
     });
+
+    $("randomBtn").addEventListener("click", async () => {
+      try { $("randomValue").textContent = (await api("/api/admin/random")).value; }
+      catch (error) { adminMsg(error.message); }
+    });
+    $("randomCopy").addEventListener("click", (e) => {
+      const v = $("randomValue").textContent;
+      if (v) copyText(v, e.target);
+    });
+
+    init();
   </script>
 </body>
 </html>
