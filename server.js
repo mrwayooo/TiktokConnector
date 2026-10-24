@@ -609,7 +609,12 @@ app.post('/api/connect', requireTenant, async (req, res) => {
   rt.giftsQueued = 0;
   activeTikTok.set(username.toLowerCase(), rt.key);
 
-  const connection = new TikTokLiveConnection(username, { enableExtendedGiftInfo: true });
+  // enableExtendedGiftInfo ปิดไว้: ตัวเลือกนี้ต้องใช้ Euler แผน Business (เสียเงิน)
+  // ชื่อ Gift มากับ Event อยู่แล้ว (giftDetails.giftName) จึงไม่จำเป็น
+  const connection = new TikTokLiveConnection(username, {
+    enableExtendedGiftInfo: false,
+    ...(process.env.EULER_API_KEY ? { signApiKey: process.env.EULER_API_KEY } : {}),
+  });
   rt.connection = connection;
   attachHandlers(rt, connection, gen);
 
