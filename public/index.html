@@ -458,7 +458,7 @@
         ul.appendChild(li);
         return;
       }
-      const label = { game: "sent to game", "web-only": "web only", "queue-full": "queue full" };
+      const label = { game: "sent to game", "web-only": "web only", "queue-full": "queue full", "no-rule": "no rule" };
       for (const g of list.slice(0, 10)) {
         const li = document.createElement("li");
         const time = document.createElement("span");
@@ -567,10 +567,12 @@
           method: "POST",
           body: JSON.stringify({ giftName: $("mockGift").value, username: "MockViewer", repeatCount: 1 })
         });
-        const e = result.created[0];
-        $("mockResult").textContent = !currentRoblox
-          ? `Web only (enter your key in game first): ${e.giftName} → ${e.ability}`
-          : `Queued #${e.id}: ${e.giftName} → ${e.ability}`;
+        const acts = (result.created || []).map((e) => e.ability);
+        $("mockResult").textContent = !result.matched
+          ? `No rule for ${$("mockGift").value}. Set one in game (Actions & Events).`
+          : !currentRoblox
+            ? `Web only (enter your key in game first): ${acts.join(", ")}`
+            : `Sent to game: ${acts.join(", ")}`;
         refreshStatus();
       } catch (error) {
         $("mockResult").textContent = error.message;
