@@ -33,42 +33,130 @@ if (!ADMIN_PASSWORD) {
 }
 
 /* ------------------------------------------------------------------ */
-/* Gift Mapping: ชื่อ Gift จาก TikTok -> ชื่อ Ability                   */
+/* กฎ (Actions & Events): ผู้เช่าตั้งเองในเกม เก็บใน tenant.rules       */
+/* trigger: gift / chat / likeUser / likeTotal / follow / share / join */
 /* ------------------------------------------------------------------ */
-const GIFT_TO_ABILITY = {
-  'Rose': 'Tung LV.1',
-  'Finger Heart': 'Tung LV.2',
-  'Rosa': 'Tung LV.3',
-  'GG': 'Ghost LV.1',
-  'Gala GG': 'Ghost LV.1',
-  'Good Game': 'Ghost LV.1',
-  'Tiny Diny': 'Ghost LV.2',
-  'Dinosaur': 'Ghost LV.2',
-  'Perfume': 'Ghost LV.3',
-  'Perfume Box': 'Ghost LV.3',
-  'Doughnut': 'Meteor',
-  'Donut': 'Meteor',
-  'Cap': 'No Jar',
-  'Cowboy Hat': 'No Jar',
-  'Confetti': 'Reset',
-  'Party Popper': 'Reset',
-  'Music Note': 'Totem Attack',
-  'Raving Snail': 'Web',
-  'Paper Crane': 'Spawn Jar', // ยังไม่มี Handler ใน Roblox
-  'Baby Hippo': 'Shield',
-  'Moo Deng': 'Shield',
-  'Hand Heart': 'Attack +1 Win',
-  'Racing Car': 'Speed', // ยังไม่มี Handler ใน Roblox
-};
-const NOT_IMPLEMENTED = new Set(['Paper Crane', 'Racing Car']);
+// ชื่อ Ability ต้องตรงกับ HANDLERS ใน Abilitysystem ของเกม
+const ABILITIES = [
+  { id: 'Tung1', label: 'Tung LV.1' },
+  { id: 'Tung2', label: 'Tung LV.2' },
+  { id: 'Tung3', label: 'Tung LV.3' },
+  { id: 'Ghost1', label: 'ผีจิ๋ว LV.1' },
+  { id: 'Ghost2', label: 'ผีจีน LV.2' },
+  { id: 'Ghost3', label: 'ผีเปรต LV.3' },
+  { id: 'Meteor', label: 'อุกกาบาต (Meteor)' },
+  { id: 'NoJar', label: 'ห้ามซ่อนไห (No Jar)' },
+  { id: 'Reset', label: 'รีเซ็ต (Reset)' },
+  { id: 'Totem', label: 'Totem Attack' },
+  { id: 'Web', label: 'ใยแมงมุม (Web)' },
+  { id: 'Shield', label: 'โล่ (Shield)' },
+  { id: 'Win', label: 'Attack +1 Win' },
+  { id: 'Jar', label: 'เสกไห (Jar)' },
+  { id: 'Speed', label: 'เพิ่มความเร็ว (Speed)' },
+];
+const ABILITY_LABEL = new Map(ABILITIES.map((a) => [a.id, a.label]));
 
-const giftLookup = new Map(
-  Object.entries(GIFT_TO_ABILITY).map(([gift, ability]) => [gift.toLowerCase(), ability])
-);
-const abilityNames = new Set(Object.values(GIFT_TO_ABILITY));
+// รายการ Gift ให้เลือกในเกม (ชื่อตามที่ TikTok ส่งมา) coins = ราคาโดยประมาณ
+const GIFT_CATALOG = [
+  ...['Rose', 'TikTok', 'Ice Cream Cone', 'GG', 'Wink wink', 'Cake Slice', 'Glow Stick', 'Heart Me', 'Starfish', 'Thumbs Up', 'Lightning Bolt'].map((name) => ({ name, coins: 1 })),
+  ...['Panda', 'Finger Heart', 'Hi', 'Mic', 'Shell'].map((name) => ({ name, coins: 5 })),
+  { name: 'Paper Crane', coins: 9 }, { name: 'Perfume', coins: 20 }, { name: 'Doughnut', coins: 30 },
+  { name: 'I Love You', coins: 49 },
+  ...['Love Balloon', 'Cap', 'Crown'].map((name) => ({ name, coins: 99 })),
+  ...['Confetti', 'Heart Hands', 'Origami Crane', 'Rose Garland'].map((name) => ({ name, coins: 100 })),
+  ...['Sunglasses', 'Hearts', 'Goggles'].map((name) => ({ name, coins: 199 })),
+  ...['Boxing Gloves', 'Rock n Roll', 'Corgi'].map((name) => ({ name, coins: 299 })),
+  ...['Gamepad', 'Forever Rose'].map((name) => ({ name, coins: 399 })),
+  ...['Money Rain', 'Green Car', 'Hot Air Balloon', 'Pool Party'].map((name) => ({ name, coins: 500 })),
+  ...['Space Suit', 'Fireworks'].map((name) => ({ name, coins: 699 })),
+  ...['Galaxy', 'Disco Ball', 'Train', 'Diamond Ring'].map((name) => ({ name, coins: 1000 })),
+  ...['Diamond Fountains', 'Champions Cheers'].map((name) => ({ name, coins: 1500 })),
+  ...['Carousel', 'Magical Castle'].map((name) => ({ name, coins: 2000 })),
+  ...['Sports Car', 'Motorcycle', 'Ferris Wheel'].map((name) => ({ name, coins: 3000 })),
+  ...['Submarine', 'Volcanic Eruption'].map((name) => ({ name, coins: 4000 })),
+  ...['Aircraft Carrier', 'Phoenix', 'Dream Spaceship'].map((name) => ({ name, coins: 5000 })),
+  ...['Interstellar', 'Golden Whale'].map((name) => ({ name, coins: 10000 })),
+  ...['Leon the Kitten', 'Zeus'].map((name) => ({ name, coins: 20000 })),
+  { name: 'Dragon Flame', coins: 26999 },
+  ...['Lion', 'Gorilla'].map((name) => ({ name, coins: 29999 })),
+  { name: 'Leon & Lion', coins: 34000 },
+  ...['TikTok Stars', 'Thunder Falcon'].map((name) => ({ name, coins: 39999 })),
+  { name: 'TikTok Universe', coins: 44999 },
+  // ชื่อที่ใช้ในกฎเริ่มต้นเดิม (ราคาไม่แน่นอน)
+  ...['Rosa', 'Gala GG', 'Good Game', 'Tiny Diny', 'Dinosaur', 'Perfume Box', 'Donut', 'Cowboy Hat',
+    'Party Popper', 'Music Note', 'Raving Snail', 'Baby Hippo', 'Moo Deng', 'Hand Heart', 'Journey Pass'].map((name) => ({ name, coins: null })),
+];
 
-function resolveAbility(giftName) {
-  return giftLookup.get(String(giftName).trim().toLowerCase()) ?? null;
+const TRIGGERS = [
+  { type: 'chat', label: '💬 แชท (พิมพ์ข้อความ)', value: 'text' },
+  { type: 'gift', label: '🎁 ของขวัญ', value: 'gift' },
+  { type: 'likeUser', label: '💗 หัวใจสะสมรายคน (ทุกๆ N)', value: 'number' },
+  { type: 'likeTotal', label: '💖 หัวใจรวมทั้งไลฟ์ (ทุกๆ N)', value: 'number' },
+  { type: 'follow', label: '👤 กดติดตาม', value: 'none' },
+  { type: 'share', label: '🔗 แชร์ไลฟ์', value: 'none' },
+  { type: 'join', label: '👋 เข้าห้องไลฟ์', value: 'none' },
+];
+const TRIGGER_TYPES = new Set(TRIGGERS.map((t) => t.type));
+const CATALOG = { abilities: ABILITIES, gifts: GIFT_CATALOG, triggers: TRIGGERS };
+
+// กฎเริ่มต้น = ตาราง Gift เดิม (ใช้เมื่อผู้เช่ายังไม่เคยตั้งเอง)
+const DEFAULT_GIFT_RULES = [
+  ['Rose', 'Tung1'], ['Finger Heart', 'Tung2'], ['Rosa', 'Tung3'],
+  ['GG', 'Ghost1'], ['Gala GG', 'Ghost1'], ['Good Game', 'Ghost1'],
+  ['Tiny Diny', 'Ghost2'], ['Dinosaur', 'Ghost2'], ['Perfume', 'Ghost3'], ['Perfume Box', 'Ghost3'],
+  ['Doughnut', 'Meteor'], ['Donut', 'Meteor'], ['Cap', 'NoJar'], ['Cowboy Hat', 'NoJar'],
+  ['Confetti', 'Reset'], ['Party Popper', 'Reset'], ['Music Note', 'Totem'], ['Raving Snail', 'Web'],
+  ['Paper Crane', 'Jar'], ['Baby Hippo', 'Shield'], ['Moo Deng', 'Shield'], ['Hand Heart', 'Win'],
+  ['Journey Pass', 'Speed'],
+];
+
+function defaultRules() {
+  return DEFAULT_GIFT_RULES.map(([gift, ability], i) => ({
+    id: `r${i + 1}`,
+    trigger: { type: 'gift', value: gift },
+    actions: [{ ability, count: 1 }],
+  }));
+}
+
+function rulesOf(t) {
+  return Array.isArray(t?.rules) ? t.rules : defaultRules();
+}
+
+// ตรวจและจัดรูปกฎที่ส่งมาจากเกม (โยน Error พร้อมข้อความภาษาไทยถ้าผิด)
+function normalizeRules(input) {
+  if (!Array.isArray(input)) throw new Error('รูปแบบกฎไม่ถูกต้อง');
+  if (input.length > 60) throw new Error('ตั้งได้สูงสุด 60 เงื่อนไข');
+  return input.map((r, i) => {
+    const n = i + 1;
+    const type = r?.trigger?.type;
+    if (!TRIGGER_TYPES.has(type)) throw new Error(`เงื่อนไขที่ ${n}: ไม่รู้จักประเภทนี้`);
+    let value = null;
+    if (type === 'gift') {
+      value = String(r.trigger.value ?? '').trim();
+      if (!value || value.length > 40) throw new Error(`เงื่อนไขที่ ${n}: กรุณาเลือกของขวัญ`);
+    } else if (type === 'chat') {
+      value = String(r.trigger.value ?? '').trim().slice(0, 50); // ว่าง = ทุกข้อความ
+    } else if (type === 'likeUser' || type === 'likeTotal') {
+      value = Number(r.trigger.value);
+      if (!Number.isInteger(value) || value < 1 || value > 1000000) {
+        throw new Error(`เงื่อนไขที่ ${n}: จำนวนหัวใจต้องเป็นเลข 1-1,000,000`);
+      }
+    }
+    const actions = Array.isArray(r.actions) ? r.actions : [];
+    if (actions.length < 1 || actions.length > 5) throw new Error(`เงื่อนไขที่ ${n}: ต้องมีคำสั่ง 1-5 คำสั่ง`);
+    return {
+      id: `r${n}`,
+      trigger: { type, value },
+      actions: actions.map((a) => {
+        if (!ABILITY_LABEL.has(a?.ability)) throw new Error(`เงื่อนไขที่ ${n}: ไม่รู้จักคำสั่งนี้`);
+        const count = Number(a.count);
+        if (!Number.isInteger(count) || count < 1 || count > 20) {
+          throw new Error(`เงื่อนไขที่ ${n}: จำนวนครั้งต้องเป็นเลข 1-20`);
+        }
+        return { ability: a.ability, count };
+      }),
+    };
+  });
 }
 
 /* ------------------------------------------------------------------ */
@@ -252,7 +340,9 @@ function getRuntime(k) {
       giftsQueued: 0,
       lastError: null,
       streaks: new Map(),
-      recent: [], // Gift ล่าสุด แสดงบนหน้าเว็บของผู้ใช้
+      recent: [], // เหตุการณ์ล่าสุด แสดงบนหน้าเว็บของผู้ใช้
+      likeByUser: new Map(), // หัวใจสะสมรายคน (รอบ LIVE นี้)
+      likeTotal: 0, // หัวใจรวมทั้งไลฟ์ (รอบ LIVE นี้)
     };
     runtimes.set(k, rt);
   }
@@ -268,31 +358,93 @@ function isTestRuntime(rt) {
   return !!t && !t.robloxName;
 }
 
-function enqueue(rt, { giftName, ability, username, source }) {
+function addRecent(rt, entry) {
+  rt.recent.unshift(entry);
+  if (rt.recent.length > RECENT_MAX) rt.recent.length = RECENT_MAX;
+}
+
+// คำสั่งที่ส่งเข้าเกม: { type: 'ACTION', ability } (Poller เรียก Ability ตามชื่อ)
+function enqueue(rt, { trigger, ability, username, source }) {
   const test = isTestRuntime(rt);
   const full = !test && rt.events.length >= MAX_QUEUE;
   const event = {
     id: `${BOOT_ID}-${nextId++}`,
-    type: 'GIFT',
-    giftName,
+    type: 'ACTION',
     ability,
+    trigger,
     username,
     createdAt: Date.now(),
     source,
   };
-  rt.recent.unshift({
+  addRecent(rt, {
     id: event.id,
-    giftName,
-    ability,
+    giftName: trigger, // ชื่อฟิลด์เดิมที่หน้าเว็บใช้แสดง "ตัวเรียก"
+    ability: ABILITY_LABEL.get(ability) ?? ability,
     username,
     source,
     at: event.createdAt,
     delivery: test ? 'web-only' : full ? 'queue-full' : 'game',
   });
-  if (rt.recent.length > RECENT_MAX) rt.recent.length = RECENT_MAX;
   if (full) return null;
   if (!test) rt.events.push(event);
   return event;
+}
+
+const MAX_ACTIONS_PER_EVENT = 40; // กันเหตุการณ์เดียวยิงคำสั่งมากเกินไป
+
+function runRule(rt, rule, times, username, source, label, budget) {
+  let sent = 0;
+  for (const action of rule.actions) {
+    const n = Math.min(times * action.count, MAX_REPEAT, budget.left);
+    for (let i = 0; i < n; i++) {
+      budget.left--;
+      if (enqueue(rt, { trigger: label, ability: action.ability, username, source })) sent++;
+    }
+  }
+  rt.giftsQueued += sent;
+  return sent;
+}
+
+// เรียกกฎที่ตรงกับเหตุการณ์ คืนจำนวนกฎที่ตรง
+function fireTrigger(rt, type, { value = null, times = 1, username, source, label }) {
+  const t = tenants.get(rt.key);
+  if (!t) return 0;
+  const budget = { left: MAX_ACTIONS_PER_EVENT };
+  let matched = 0;
+  for (const rule of rulesOf(t)) {
+    if (rule.trigger.type !== type) continue;
+    if (type === 'gift' && String(rule.trigger.value).toLowerCase() !== String(value).toLowerCase()) continue;
+    if (type === 'chat' && rule.trigger.value &&
+      !String(value).toLowerCase().includes(String(rule.trigger.value).toLowerCase())) continue;
+    matched++;
+    runRule(rt, rule, times, username, source, label, budget);
+  }
+  return matched;
+}
+
+// หัวใจ: นับสะสมรายคนและรวมทั้งไลฟ์ เรียกกฎทุกครั้งที่ข้ามเลข N
+function handleLikes(rt, likeCount, username, source) {
+  const t = tenants.get(rt.key);
+  if (!t || !(likeCount > 0)) return 0;
+  const oldUser = rt.likeByUser.get(username) ?? 0;
+  const newUser = oldUser + likeCount;
+  if (rt.likeByUser.size < 50000 || rt.likeByUser.has(username)) rt.likeByUser.set(username, newUser);
+  const oldTotal = rt.likeTotal;
+  rt.likeTotal += likeCount;
+
+  const budget = { left: MAX_ACTIONS_PER_EVENT };
+  let matched = 0;
+  for (const rule of rulesOf(t)) {
+    const N = rule.trigger.value;
+    let times = 0;
+    if (rule.trigger.type === 'likeUser') times = Math.floor(newUser / N) - Math.floor(oldUser / N);
+    else if (rule.trigger.type === 'likeTotal') times = Math.floor(rt.likeTotal / N) - Math.floor(oldTotal / N);
+    if (times <= 0) continue;
+    matched++;
+    const label = rule.trigger.type === 'likeUser' ? `หัวใจ ${N} ดวง` : `หัวใจรวม ${N} ดวง`;
+    runRule(rt, rule, times, username, source, label, budget);
+  }
+  return matched;
 }
 
 function publicStatus(rt) {
@@ -319,6 +471,8 @@ function resetRuntime(rt) {
   rt.since = null;
   rt.connection = null;
   rt.streaks.clear();
+  rt.likeByUser.clear();
+  rt.likeTotal = 0;
 }
 
 function safeDisconnect(connection) {
@@ -358,12 +512,6 @@ function handleGift(rt, data) {
   if (typeof giftName !== 'string' || !giftName) return;
   rt.giftsSeen++;
 
-  const ability = resolveAbility(giftName);
-  if (!ability) {
-    console.log(`[${rt.key}] ${username} sent "${giftName}" (no mapping, ignored)`);
-    return;
-  }
-
   let count = 1;
   if (giftType === 1) {
     // Gift แบบ streak: นับเฉพาะส่วนที่เพิ่มของ repeatCount
@@ -378,17 +526,17 @@ function handleGift(rt, data) {
   count = Math.min(count, MAX_REPEAT);
   if (count === 0) return;
 
-  let queued = 0;
-  for (let i = 0; i < count; i++) {
-    if (!enqueue(rt, { giftName, ability, username, source: 'tiktok' })) {
-      console.warn(`[${rt.key}] queue full, dropping gift event`);
-      break;
-    }
-    queued++;
+  const matched = fireTrigger(rt, 'gift', { value: giftName, times: count, username, source: 'tiktok', label: giftName });
+  if (!matched) {
+    // ไม่มีกฎสำหรับ Gift นี้: แสดงบนหน้าเว็บให้ผู้เช่ารู้ชื่อจริง
+    addRecent(rt, { id: `${BOOT_ID}-n${nextId++}`, giftName, ability: '—', username, source: 'tiktok', at: Date.now(), delivery: 'no-rule' });
+    console.log(`[${rt.key}] ${username} sent "${giftName}" x${count} (no rule)`);
+  } else {
+    console.log(`[${rt.key}] ${username} sent ${giftName} x${count}`);
   }
-  rt.giftsQueued += queued;
-  console.log(`[${rt.key}] ${username} sent ${giftName} x${count} -> ${ability}`);
 }
+
+const viewerOf = (d) => d?.user?.uniqueId ?? d?.uniqueId ?? 'UnknownViewer';
 
 function attachHandlers(rt, connection, gen) {
   connection.on(WebcastEvent.GIFT, (data) => {
@@ -399,6 +547,24 @@ function attachHandlers(rt, connection, gen) {
       console.error('gift handler error:', err);
     }
   });
+
+  const listen = (event, fn) =>
+    connection.on(event, (data) => {
+      if (gen !== rt.gen) return;
+      try {
+        fn(data);
+      } catch (err) {
+        console.error(`${event} handler error:`, err);
+      }
+    });
+  listen(WebcastEvent.CHAT, (d) => {
+    const text = String(d.comment ?? '');
+    fireTrigger(rt, 'chat', { value: text, username: viewerOf(d), source: 'tiktok', label: `แชท: ${text.slice(0, 30)}` });
+  });
+  listen(WebcastEvent.LIKE, (d) => handleLikes(rt, Number(d.likeCount) || 0, viewerOf(d), 'tiktok'));
+  listen(WebcastEvent.FOLLOW, (d) => fireTrigger(rt, 'follow', { username: viewerOf(d), source: 'tiktok', label: 'กดติดตาม' }));
+  listen(WebcastEvent.SHARE, (d) => fireTrigger(rt, 'share', { username: viewerOf(d), source: 'tiktok', label: 'แชร์ไลฟ์' }));
+  listen(WebcastEvent.MEMBER, (d) => fireTrigger(rt, 'join', { username: viewerOf(d), source: 'tiktok', label: 'เข้าห้องไลฟ์' }));
 
   connection.on(ControlEvent.DISCONNECTED, () => {
     if (gen !== rt.gen) return;
@@ -689,18 +855,25 @@ app.post('/api/disconnect', requireTenant, (req, res) => {
   res.json({ ok: true, message: 'Disconnected.', status: publicStatus(rt) });
 });
 
-app.get('/api/gifts', requireAuth, (_req, res) => {
-  res.json({
-    gifts: Object.entries(GIFT_TO_ABILITY).map(([gift, ability]) => ({
-      gift,
-      ability,
-      implemented: !NOT_IMPLEMENTED.has(gift),
-    })),
-    abilities: [...abilityNames],
+// รายการ Gift สำหรับช่อง Mock บนเว็บ พร้อมคำสั่งตามกฎของผู้เช่า
+app.get('/api/gifts', requireAuth, (req, res) => {
+  const rules = req.auth.role === 'tenant' ? rulesOf(req.auth.tenant) : defaultRules();
+  const actionsFor = (gift) =>
+    rules
+      .filter((r) => r.trigger.type === 'gift' && String(r.trigger.value).toLowerCase() === gift.toLowerCase())
+      .flatMap((r) => r.actions.map((a) => `${ABILITY_LABEL.get(a.ability) ?? a.ability}${a.count > 1 ? ` x${a.count}` : ''}`));
+  const names = [...new Set([...GIFT_CATALOG.map((g) => g.name),
+    ...rules.filter((r) => r.trigger.type === 'gift').map((r) => r.trigger.value)])];
+  const gifts = names.map((gift) => {
+    const acts = actionsFor(gift);
+    return { gift, ability: acts.length ? acts.join(', ') : 'no rule', implemented: acts.length > 0 };
   });
+  gifts.sort((a, b) => Number(b.implemented) - Number(a.implemented)); // มีกฎขึ้นก่อน
+  res.json({ gifts, abilities: ABILITIES.map((a) => a.id) });
 });
 
-// Mock Gift: ผู้เช่าส่งเข้าคิวตัวเอง / Admin หรือ x-bridge-key ต้องระบุ tenantId
+// Mock: จำลองเหตุการณ์ผ่านกฎของผู้เช่า (gift / chat / like / follow / share / join)
+// ผู้เช่าใช้กับตัวเอง / Admin หรือ x-bridge-key ต้องระบุ tenantId
 app.post('/api/test-gift', (req, res) => {
   const auth = getAuth(req);
   let tenant = null;
@@ -715,30 +888,38 @@ app.post('/api/test-gift', (req, res) => {
   if (!isActive(tenant)) return res.status(403).json({ error: 'Tenant is disabled or expired.' });
 
   const rt = getRuntime(key(tenant));
-  const giftName = typeof req.body?.giftName === 'string' ? req.body.giftName.trim() : '';
+  const type = typeof req.body?.type === 'string' ? req.body.type : 'gift';
   const username =
-    (typeof req.body?.username === 'string' ? req.body.username.trim().slice(0, 64) : '') ||
-    'MockViewer';
+    (typeof req.body?.username === 'string' ? req.body.username.trim().slice(0, 64) : '') || 'MockViewer';
   const repeatCount = Number.isInteger(req.body?.repeatCount)
     ? Math.min(Math.max(req.body.repeatCount, 1), MAX_REPEAT)
     : 1;
+  const before = rt.recent[0]?.id;
+  let matched = 0;
 
-  const ability = resolveAbility(giftName) ?? (abilityNames.has(giftName) ? giftName : null);
-  if (!ability) {
-    return res.status(400).json({
-      error: 'Unknown mock gift',
-      allowedGifts: Object.keys(GIFT_TO_ABILITY),
-    });
-  }
-  if (!isTestRuntime(rt) && rt.events.length + repeatCount > MAX_QUEUE) {
-    return res.status(429).json({ error: 'Event queue full' });
+  if (type === 'gift') {
+    const giftName = typeof req.body?.giftName === 'string' ? req.body.giftName.trim().slice(0, 40) : '';
+    if (!giftName) return res.status(400).json({ error: 'giftName is required.' });
+    matched = fireTrigger(rt, 'gift', { value: giftName, times: repeatCount, username, source: 'mock', label: giftName });
+    if (!matched) {
+      addRecent(rt, { id: `${BOOT_ID}-n${nextId++}`, giftName, ability: '—', username, source: 'mock', at: Date.now(), delivery: 'no-rule' });
+    }
+  } else if (type === 'chat') {
+    const text = String(req.body?.comment ?? '').slice(0, 200);
+    matched = fireTrigger(rt, 'chat', { value: text, username, source: 'mock', label: `แชท: ${text.slice(0, 30)}` });
+  } else if (type === 'like') {
+    const likeCount = Math.min(Math.max(Number(req.body?.likeCount) || 1, 1), 100000);
+    matched = handleLikes(rt, likeCount, username, 'mock');
+  } else if (['follow', 'share', 'join'].includes(type)) {
+    const labels = { follow: 'กดติดตาม', share: 'แชร์ไลฟ์', join: 'เข้าห้องไลฟ์' };
+    matched = fireTrigger(rt, type, { username, source: 'mock', label: labels[type] });
+  } else {
+    return res.status(400).json({ error: 'Unknown type.' });
   }
 
-  const created = [];
-  for (let i = 0; i < repeatCount; i++) {
-    created.push(enqueue(rt, { giftName, ability, username, source: 'mock' }));
-  }
-  res.json({ ok: true, created });
+  const idx = rt.recent.findIndex((r) => r.id === before);
+  const created = (idx === -1 ? rt.recent : rt.recent.slice(0, idx)).filter((r) => r.delivery !== 'no-rule');
+  res.json({ ok: true, matched, created });
 });
 
 /* ------------------------------------------------------------------ */
@@ -1028,6 +1209,40 @@ app.post('/api/game/redeem', requireBridgeKey, async (req, res) => {
   keyFails.delete(userId);
   console.log(`[${t.id}] key redeemed by Roblox ${name} (${userId})`);
   res.json({ ...granted(tenants.get(key(t))), newlyBound: true });
+});
+
+// กฎ Actions & Events ของผู้เล่น (แก้จากหน้าต่างในเกม)  (ต้องมี x-bridge-key)
+// GET  /api/game/rules?userId=   -> { ok, rules, isDefault, catalog }
+// PUT  /api/game/rules { userId, rules }  (reset: true = คืนค่าเริ่มต้น)
+app.get('/api/game/rules', requireBridgeKey, (req, res) => {
+  const t = findTenantByUserId(String(req.query.userId ?? ''));
+  if (!t) return res.json({ ok: false, message: 'Enter your game key first.' });
+  if (!isActive(t)) return res.json({ ok: false, message: 'Your access has expired or was disabled.' });
+  res.json({ ok: true, tenantId: t.id, rules: rulesOf(t), isDefault: !Array.isArray(t.rules), catalog: CATALOG });
+});
+
+app.put('/api/game/rules', requireBridgeKey, async (req, res) => {
+  const t = findTenantByUserId(String(req.body?.userId ?? ''));
+  if (!t) return res.json({ ok: false, message: 'Enter your game key first.' });
+  if (!isActive(t)) return res.json({ ok: false, message: 'Your access has expired or was disabled.' });
+  let rules;
+  try {
+    // reset: true (หรือ rules: null) = คืนค่าเริ่มต้น
+    rules = req.body?.reset === true || req.body?.rules === null ? undefined : normalizeRules(req.body?.rules);
+  } catch (err) {
+    return res.json({ ok: false, message: err.message });
+  }
+  const updated = { ...t };
+  if (rules === undefined) delete updated.rules;
+  else updated.rules = rules;
+  try {
+    await saveTenant(updated);
+  } catch (err) {
+    console.error('rules save failed:', err.message);
+    return res.json({ ok: false, message: 'บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง' });
+  }
+  console.log(`[${t.id}] rules ${rules === undefined ? 'reset to default' : `saved (${rules.length})`}`);
+  res.json({ ok: true, rules: rulesOf(updated), isDefault: rules === undefined });
 });
 
 // GET /api/events?player=<Roblox username>&userId=<Roblox UserId>  (ต้องมี x-bridge-key)
