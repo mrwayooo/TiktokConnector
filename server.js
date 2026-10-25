@@ -56,36 +56,83 @@ const ABILITIES = [
 ];
 const ABILITY_LABEL = new Map(ABILITIES.map((a) => [a.id, a.label]));
 
-// รายการ Gift ให้เลือกในเกม (ชื่อตามที่ TikTok ส่งมา) coins = ราคาโดยประมาณ
-const GIFT_CATALOG = [
-  ...['Rose', 'TikTok', 'Ice Cream Cone', 'GG', 'Wink wink', 'Cake Slice', 'Glow Stick', 'Heart Me', 'Starfish', 'Thumbs Up', 'Lightning Bolt'].map((name) => ({ name, coins: 1 })),
-  ...['Panda', 'Finger Heart', 'Hi', 'Mic', 'Shell'].map((name) => ({ name, coins: 5 })),
-  { name: 'Paper Crane', coins: 9 }, { name: 'Perfume', coins: 20 }, { name: 'Doughnut', coins: 30 },
-  { name: 'I Love You', coins: 49 },
-  ...['Love Balloon', 'Cap', 'Crown'].map((name) => ({ name, coins: 99 })),
-  ...['Confetti', 'Heart Hands', 'Origami Crane', 'Rose Garland'].map((name) => ({ name, coins: 100 })),
-  ...['Sunglasses', 'Hearts', 'Goggles'].map((name) => ({ name, coins: 199 })),
-  ...['Boxing Gloves', 'Rock n Roll', 'Corgi'].map((name) => ({ name, coins: 299 })),
-  ...['Gamepad', 'Forever Rose'].map((name) => ({ name, coins: 399 })),
-  ...['Money Rain', 'Green Car', 'Hot Air Balloon', 'Pool Party'].map((name) => ({ name, coins: 500 })),
-  ...['Space Suit', 'Fireworks'].map((name) => ({ name, coins: 699 })),
-  ...['Galaxy', 'Disco Ball', 'Train', 'Diamond Ring'].map((name) => ({ name, coins: 1000 })),
-  ...['Diamond Fountains', 'Champions Cheers'].map((name) => ({ name, coins: 1500 })),
-  ...['Carousel', 'Magical Castle'].map((name) => ({ name, coins: 2000 })),
-  ...['Sports Car', 'Motorcycle', 'Ferris Wheel'].map((name) => ({ name, coins: 3000 })),
-  ...['Submarine', 'Volcanic Eruption'].map((name) => ({ name, coins: 4000 })),
-  ...['Aircraft Carrier', 'Phoenix', 'Dream Spaceship'].map((name) => ({ name, coins: 5000 })),
-  ...['Interstellar', 'Golden Whale'].map((name) => ({ name, coins: 10000 })),
-  ...['Leon the Kitten', 'Zeus'].map((name) => ({ name, coins: 20000 })),
-  { name: 'Dragon Flame', coins: 26999 },
-  ...['Lion', 'Gorilla'].map((name) => ({ name, coins: 29999 })),
-  { name: 'Leon & Lion', coins: 34000 },
-  ...['TikTok Stars', 'Thunder Falcon'].map((name) => ({ name, coins: 39999 })),
-  { name: 'TikTok Universe', coins: 44999 },
-  // ชื่อที่ใช้ในกฎเริ่มต้นเดิม (ราคาไม่แน่นอน)
-  ...['Rosa', 'Gala GG', 'Good Game', 'Tiny Diny', 'Dinosaur', 'Perfume Box', 'Donut', 'Cowboy Hat',
-    'Party Popper', 'Music Note', 'Raving Snail', 'Baby Hippo', 'Moo Deng', 'Hand Heart', 'Journey Pass'].map((name) => ({ name, coins: null })),
+// รายการ Gift ให้เลือกในเกม: ชื่อและราคาจาก TikTok ประเทศไทย (streamtoearn.io/gifts?region=TH, 25 ต.ค. 2026)
+// 1-10 เหรียญครบทุกชิ้น, ราคาสูงกว่านั้นคัดเฉพาะที่นิยม (พิมพ์ชื่อเองในเกมได้ถ้าไม่อยู่ในรายการ)
+// ชื่อต้องตรงตัวพิมพ์เล็ก/ใหญ่ เช่น "Love you" (1) กับ "Love You" (199) เป็นคนละชิ้น
+const GIFT_TIERS = [
+  [1, ['Rose', "You're awesome", 'Mantap', 'Ice Cream Cone', 'Eye for an Eye', 'Love you so much', 'Wink wink',
+    'Cake Slice', 'TikTok', 'GG', 'Mate Melody', 'Welcome Dallah', 'Mirwas Beat', 'Pop', 'Glow Stick', 'Oldies',
+    'A Shard of Hope', 'Freestyle', 'My First Rose', 'Heart Me', 'Blow a kiss', 'LUVX Cheer', 'Halloween mood',
+    'Music on Stage', 'LUVE Cheer', 'Community Heart', 'SEA Shell', 'Love KSA', 'Starfish', 'Light', 'Thumbs Up',
+    'Heart', 'Love you', 'Music Album', 'coldy', 'Red Lightning', 'Blue Lightning', 'Yellow Lightning',
+    'Treasure Clover', 'Palm of Protection', 'Lucky Pig', 'Wink Charm', 'Go Popular', 'Community Gift', 'Club Cheers']],
+  [2, ['Team Bracelet']],
+  [5, ['Finger Heart', 'Spinning Soccer', 'Overreact', 'Love in Scent', 'Encore Ticket', 'Name shoutout', 'Brown Paw']],
+  [6, ['Divine Fingers']],
+  [9, ['The Lucky 9', 'Super Popular', 'Cheer You Up', 'Club Power']],
+  [10, ['Rosa', 'Friendship Necklace', 'Slow motion', 'I Like What I See', 'Journey Pass', 'Courage potion', 'DJ Vinyl',
+    'LIVE Ranking Ticket', 'Black Paw', 'Squirrel', 'I love you', 'Tiny Diny', 'Style Me Up', 'Banana Peel',
+    'Songs of LIVE', "Treasure's Key", "I'm Yours", 'Magic Feather', 'PK Cheer bump', 'Shamrock', 'Heart Gaze']],
+  [15, ['Bravo!', 'Lyric Mail', 'Flower Garland', 'Baby Hippo']],
+  [20, ['Perfume', 'LOL', 'Tiny Blush', 'Rage Mode', 'Huh?', 'No Comment', 'Headphones', 'Traffic Cone', 'Mushroom']],
+  [30, ['Doughnut', 'Bouquet Flower', 'Warm Cocoa', 'Energy Capsule', 'Ghostfire']],
+  [70, ['Single Strike']],
+  [99, ['Paper Crane', 'Cap', 'Little Crown', 'Hat and Mustache', 'Like-Pop', 'Love Painting', 'Bubble Gum',
+    'Mark of Love', 'Sundae Bowl', 'Candy Blast']],
+  [100, ['Confetti', 'Hand Heart', 'Scooter', 'Bouquet', 'Mishka Bear', 'Balloon Gift Box', 'Marvelous Confetti']],
+  [149, ['Raving Snail', 'Bowknot', 'Big Shout Out', 'Chatting Popcorn', 'Masquerade', 'Love Glasses']],
+  [150, ['Puffer Fish', 'Cruiser']],
+  [199, ['Sunglasses', 'Hearts', 'Garland Headpiece', 'Suitcase', 'Love You', 'Cheer For You', 'Night Star',
+    'Twinkling Star', 'Floating Octopus', 'Panda Climb', 'Rose Hand']],
+  [200, ['Balloons', 'Magic Genie']],
+  [222, ['Cat']],
+  [249, ['Pinch Face', 'Candy Bouquet', 'Star Goggles', 'Surfing Penguin']],
+  [299, ['Boxing Gloves', 'Corgi', 'Fruit Friends', 'Naughty Chicken', 'Rock Star', 'Butterfly for You',
+    'Puppy Kisses', 'Spider on web', 'Hawaiian Lei']],
+  [300, ['Feather Mask']],
+  [349, ['Become Kitten', 'Gingerbread Man']],
+  [399, ['Forever Rosa', 'Relaxed Goose', "Tom's Hug", 'Lucky Cat', 'Alien Buddy']],
+  [400, ['Moped', 'Crystal Dreams', 'Wishing Cake']],
+  [449, ['Beating Heart', "Pirate's Treasure", 'Space Love']],
+  [450, ['Superwoman', 'Sloth Peek']],
+  [499, ['Crystal Heart', 'Coral', 'Music', 'Hands Up']],
+  [500, ['Mermaid', 'Money Gun', 'VR Goggles', 'DJ Glasses', 'Dragon Crown', 'Racing Helmet', 'Mystery Box', 'Gem Gun']],
+  [599, ['Fruit Box']],
+  [699, ['Swan']],
+  [700, ['Cafe Racer', 'Colorful Wings']],
+  [899, ['Train']],
+  [999, ['Travel with You', 'Lucky Airdrop Box', 'Grand show']],
+  [1000, ['Galaxy', 'Watermelon Love', 'Blooming Ribbons', 'Fairy Wings', 'Magic Potion', 'Shiny Air Balloon']],
+  [1088, ['Fireworks']],
+  [1500, ['Viking Hammer', 'Chasing the Dream', 'Lover’s Lock', 'Greeting Card', 'Future Encounter',
+    'Under Control', 'Racing Debut', 'Astrobear']],
+  [1580, ['Shooting Stars']],
+  [1800, ['Love Drop', 'Fox Legend']],
+  [1999, ['Star of Red Carpet', 'Mystery Firework', 'Let Us Dance', 'Carousel']],
+  [2000, ['Sky Drift', 'Cooper Picnic']],
+  // ราคาสูงกว่า 2,000: ตามรายการที่ได้รับ (ยังไม่ได้เทียบกับรายชื่อจริง)
+  [3000, ['Sports Car', 'Motorcycle', 'Ferris Wheel']],
+  [4000, ['Submarine', 'Volcanic Eruption']],
+  [5000, ['Aircraft Carrier', 'Phoenix', 'Dream Spaceship']],
+  [10000, ['Interstellar', 'Golden Whale']],
+  [20000, ['Leon the Kitten', 'Zeus']],
+  [26999, ['Dragon Flame']],
+  [29999, ['Lion', 'Gorilla']],
+  [34000, ['Leon & Lion']],
+  [39999, ['TikTok Stars', 'Thunder Falcon']],
+  [44999, ['TikTok Universe']],
 ];
+const GIFT_CATALOG = [];
+{
+  const seen = new Set();
+  for (const [coins, names] of GIFT_TIERS) {
+    for (const name of names) {
+      if (seen.has(name)) continue;
+      seen.add(name);
+      GIFT_CATALOG.push({ name, coins });
+    }
+  }
+}
 
 const TRIGGERS = [
   { type: 'chat', label: '💬 แชท (พิมพ์ข้อความ)', value: 'text' },
@@ -102,12 +149,11 @@ const CATALOG = { abilities: ABILITIES, gifts: GIFT_CATALOG, triggers: TRIGGERS 
 // กฎเริ่มต้น = ตาราง Gift เดิม (ใช้เมื่อผู้เช่ายังไม่เคยตั้งเอง)
 const DEFAULT_GIFT_RULES = [
   ['Rose', 'Tung1'], ['Finger Heart', 'Tung2'], ['Rosa', 'Tung3'],
-  ['GG', 'Ghost1'], ['Gala GG', 'Ghost1'], ['Good Game', 'Ghost1'],
-  ['Tiny Diny', 'Ghost2'], ['Dinosaur', 'Ghost2'], ['Perfume', 'Ghost3'], ['Perfume Box', 'Ghost3'],
-  ['Doughnut', 'Meteor'], ['Donut', 'Meteor'], ['Cap', 'NoJar'], ['Cowboy Hat', 'NoJar'],
-  ['Confetti', 'Reset'], ['Party Popper', 'Reset'], ['Music Note', 'Totem'], ['Raving Snail', 'Web'],
-  ['Paper Crane', 'Jar'], ['Baby Hippo', 'Shield'], ['Moo Deng', 'Shield'], ['Hand Heart', 'Win'],
-  ['Journey Pass', 'Speed'],
+  ['GG', 'Ghost1'], ['Tiny Diny', 'Ghost2'], ['Perfume', 'Ghost3'],
+  ['Doughnut', 'Meteor'], ['Cap', 'NoJar'], ['Confetti', 'Reset'],
+  ['Raving Snail', 'Web'], ['Paper Crane', 'Jar'], ['Baby Hippo', 'Shield'],
+  ['Hand Heart', 'Win'], ['Journey Pass', 'Speed'],
+  // Totem: ยังไม่มี Gift เริ่มต้น (Music Note ไม่มีในไทย) ตั้งเองในเกมได้
 ];
 
 function defaultRules() {
@@ -413,7 +459,7 @@ function fireTrigger(rt, type, { value = null, times = 1, username, source, labe
   let matched = 0;
   for (const rule of rulesOf(t)) {
     if (rule.trigger.type !== type) continue;
-    if (type === 'gift' && String(rule.trigger.value).toLowerCase() !== String(value).toLowerCase()) continue;
+    if (type === 'gift' && String(rule.trigger.value).trim() !== String(value).trim()) continue; // ตรงตัวพิมพ์
     if (type === 'chat' && rule.trigger.value &&
       !String(value).toLowerCase().includes(String(rule.trigger.value).toLowerCase())) continue;
     matched++;
@@ -860,7 +906,7 @@ app.get('/api/gifts', requireAuth, (req, res) => {
   const rules = req.auth.role === 'tenant' ? rulesOf(req.auth.tenant) : defaultRules();
   const actionsFor = (gift) =>
     rules
-      .filter((r) => r.trigger.type === 'gift' && String(r.trigger.value).toLowerCase() === gift.toLowerCase())
+      .filter((r) => r.trigger.type === 'gift' && String(r.trigger.value) === gift)
       .flatMap((r) => r.actions.map((a) => `${ABILITY_LABEL.get(a.ability) ?? a.ability}${a.count > 1 ? ` x${a.count}` : ''}`));
   const names = [...new Set([...GIFT_CATALOG.map((g) => g.name),
     ...rules.filter((r) => r.trigger.type === 'gift').map((r) => r.trigger.value)])];
