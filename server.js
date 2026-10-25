@@ -188,6 +188,43 @@ function findTenantByRoblox(name) {
   return null;
 }
 
+function findTenantByUserId(userId) {
+  const u = String(userId);
+  for (const t of tenants.values()) if (t.robloxUserId && String(t.robloxUserId) === u) return t;
+  return null;
+}
+
+/* ------------------------------------------------------------------ */
+/* คีย์เกม: ผู้เล่นใส่ในเกม แล้วคีย์ผูกกับบัญชี Roblox ที่ใส่ครั้งแรก      */
+/* ------------------------------------------------------------------ */
+const KEY_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // ไม่มี 0 O 1 I กันสับสน
+const normKey = (v) => String(v ?? '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+
+function findTenantByKey(value) {
+  const n = normKey(value);
+  if (n.length !== 8) return null;
+  for (const t of tenants.values()) if (t.gameKey && normKey(t.gameKey) === n) return t;
+  return null;
+}
+
+function newGameKey() {
+  let k;
+  do {
+    let s = '';
+    for (const b of crypto.randomBytes(8)) s += KEY_ALPHABET[b % 32];
+    k = `${s.slice(0, 4)}-${s.slice(4)}`;
+  } while (findTenantByKey(k));
+  return k;
+}
+
+// บัญชีเก่าที่ยังไม่มีคีย์: สร้างให้ตอนเปิดเซิร์ฟเวอร์
+for (const t of tenants.values()) {
+  if (!t.gameKey) {
+    t.gameKey = newGameKey();
+    saveTenantInBackground(t);
+  }
+}
+
 /* ------------------------------------------------------------------ */
 /* Runtime ต่อผู้เช่า: คิว Gift + การเชื่อม TikTok                       */
 /* ------------------------------------------------------------------ */
@@ -567,6 +604,8 @@ app.get('/api/me', requireAuth, (req, res) => {
     role: 'tenant',
     id: t.id,
     robloxName: t.robloxName,
+    gameKey: t.gameKey,
+    bound: !!t.robloxUserId,
     expiresAt: t.expiresAt,
     plan: planOf(t),
     lastTikTok: t.lastTikTok ?? null,
@@ -715,6 +754,8 @@ function publicTenant(t) {
   return {
     id: t.id,
     robloxName: t.robloxName,
+    bound: !!t.robloxUserId,
+    gameKey: t.gameKey,
     createdAt: t.createdAt,
     expiresAt: t.expiresAt,
     plan: planOf(t),
@@ -745,7 +786,7 @@ app.post('/api/admin/tenants', requireAdmin, async (req, res) => {
   if (!/^[A-Za-z0-9_-]{1,32}$/.test(id) || id.toLowerCase() === 'admin') {
     return res.status(400).json({ error: 'ID must be 1-32 chars (A-Z, 0-9, _ -) and not "admin".' });
   }
-  const needsRoblox = plan !== 'test' || robloxName !== '';
+  const needsRoblox = robloxName !== ''; // ไม่บังคับ: ผูกเองเมื่อผู้เล่นใส่คีย์ในเกม
   if (needsRoblox && !/^[A-Za-z0-9_]{3,20}$/.test(robloxName)) {
     return res.status(400).json({ error: 'Invalid Roblox username (3-20 chars: letters, numbers, _).' });
   }
@@ -759,7 +800,9 @@ app.post('/api/admin/tenants', requireAdmin, async (req, res) => {
   const password = newPassword();
   const t = {
     id,
-    robloxName: robloxName || null, // บัญชี Test ไม่ใส่ชื่อได้ (Gift แสดงบนเว็บอย่างเดียว)
+    robloxName: robloxName || null, // ว่างได้: ผูกอัตโนมัติเมื่อผู้เล่นใส่คีย์ในเกม
+    robloxUserId: null,
+    gameKey: newGameKey(),
     ...hashPassword(password),
     createdAt: Date.now(),
     plan: plan === 'test' ? 'test' : days ? 'rental' : 'lifetime',
@@ -781,8 +824,10 @@ app.patch('/api/admin/tenants/:id', requireAdmin, async (req, res) => {
   const t = { ...current }; // แก้บนสำเนา บันทึกสำเร็จค่อยใช้จริง
   const body = req.body ?? {};
 
-  if (body.robloxName !== undefined && String(body.robloxName).trim() === '' && planOf(current) === 'test' && body.plan === undefined) {
-    t.robloxName = null; // บัญชี Test ล้างชื่อ Roblox ได้ (กลับเป็นแสดงบนเว็บอย่างเดียว)
+  if (body.unbind === true || (body.robloxName !== undefined && String(body.robloxName).trim() === '')) {
+    // ยกเลิกการผูก: ผู้เล่นต้องใส่คีย์ใหม่ในเกม (ใช้เมื่อลูกค้าเปลี่ยนบัญชี Roblox)
+    t.robloxName = null;
+    t.robloxUserId = null;
   } else if (body.robloxName !== undefined) {
     const name = String(body.robloxName).trim();
     if (!/^[A-Za-z0-9_]{3,20}$/.test(name)) {
@@ -792,8 +837,10 @@ app.patch('/api/admin/tenants/:id', requireAdmin, async (req, res) => {
     if (other && other !== current) {
       return res.status(409).json({ error: 'This Roblox username is already assigned to another tenant.' });
     }
+    if (name.toLowerCase() !== String(current.robloxName ?? '').toLowerCase()) t.robloxUserId = null;
     t.robloxName = name;
   }
+  if (body.newKey === true) t.gameKey = newGameKey(); // คีย์เก่าใช้ไม่ได้ทันที (การผูกเดิมยังอยู่)
   if (body.plan === 'lifetime') {
     // เปลี่ยนเป็นซื้อขาด: ไม่มีวันหมดอายุ
     t.plan = 'lifetime';
@@ -807,9 +854,6 @@ app.patch('/api/admin/tenants/:id', requireAdmin, async (req, res) => {
     t.expiresAt = Date.now() + n * 86400000;
   } else if (body.plan !== undefined) {
     return res.status(400).json({ error: 'plan must be "lifetime" or "rental".' });
-  }
-  if (body.plan !== undefined && !t.robloxName) {
-    return res.status(400).json({ error: 'A Roblox username is required for Rental or Lifetime.' });
   }
   if (body.extendDays !== undefined) {
     if (!t.expiresAt) {
@@ -895,12 +939,95 @@ app.get('/health', (_req, res) => {
   res.json({ ok: true, service: 'TikTok-Roblox Bridge' });
 });
 
-// GET /api/events?player=<Roblox username>  (ต้องมี x-bridge-key)
+// หา tenant ของผู้เล่น: ใช้ UserId ก่อน (เปลี่ยนชื่อ Roblox ไม่กระทบ) แล้วค่อยใช้ชื่อ
+function tenantForPlayer(userId, name) {
+  if (userId) {
+    const byId = findTenantByUserId(userId);
+    if (byId) return byId;
+  }
+  const byName = name ? findTenantByRoblox(name) : null;
+  if (!byName) return null;
+  if (byName.robloxUserId && userId && String(byName.robloxUserId) !== String(userId)) return null;
+  return byName;
+}
+
+// จำกัดการเดาคีย์: ผิด 10 ครั้ง / 15 นาที ต่อบัญชี Roblox
+const keyFails = new Map();
+function keyBlocked(userId) {
+  const rec = keyFails.get(userId);
+  if (!rec) return false;
+  if (rec.resetAt < Date.now()) {
+    keyFails.delete(userId);
+    return false;
+  }
+  return rec.count >= 10;
+}
+function recordKeyFail(userId) {
+  const rec = keyFails.get(userId);
+  if (!rec || rec.resetAt < Date.now()) keyFails.set(userId, { count: 1, resetAt: Date.now() + 15 * 60 * 1000 });
+  else rec.count++;
+}
+
+// POST /api/game/redeem  { userId, name, key? }  (ต้องมี x-bridge-key)
+// ไม่มี key = เช็กว่าผู้เล่นคนนี้ผูกไว้แล้วหรือยัง / มี key = ผูกบัญชี Roblox กับคีย์
+// ตอบ 200 เสมอพร้อม ok true/false ให้สคริปต์ในเกมอ่านง่าย
+app.post('/api/game/redeem', requireBridgeKey, async (req, res) => {
+  const userId = Number(req.body?.userId);
+  const name = typeof req.body?.name === 'string' ? req.body.name.trim() : '';
+  if (!Number.isSafeInteger(userId) || userId <= 0 || !/^[A-Za-z0-9_]{3,20}$/.test(name)) {
+    return res.status(400).json({ error: 'userId and name are required.' });
+  }
+  const granted = (t) => ({ ok: true, tenantId: t.id, plan: planOf(t), expiresAt: t.expiresAt });
+  const denied = (reason, message) => ({ ok: false, reason, message });
+
+  // 1) ผูกไว้แล้ว (หรือ Admin ใส่ชื่อ Roblox นี้ไว้เอง) เข้าได้เลยไม่ต้องใส่คีย์
+  const existing = tenantForPlayer(userId, name);
+  if (existing) {
+    if (!isActive(existing)) return res.json(denied('expired', 'Your access has expired or was disabled.'));
+    if (String(existing.robloxUserId) !== String(userId) || existing.robloxName !== name) {
+      existing.robloxUserId = userId;
+      existing.robloxName = name; // จำ UserId และอัปเดตชื่อถ้าเปลี่ยน
+      saveTenantInBackground(existing);
+    }
+    return res.json(granted(existing));
+  }
+
+  const rawKey = req.body?.key;
+  if (!rawKey) return res.json(denied('need-key', 'Enter your game key to play.'));
+  if (keyBlocked(userId)) return res.json(denied('too-many', 'Too many wrong keys. Try again in 15 minutes.'));
+
+  const t = findTenantByKey(rawKey);
+  if (!t) {
+    recordKeyFail(userId);
+    return res.json(denied('invalid', 'Invalid key. Check it and try again.'));
+  }
+  if (!isActive(t)) return res.json(denied('expired', 'This key has expired or was disabled.'));
+  if (t.robloxUserId && String(t.robloxUserId) !== String(userId)) {
+    recordKeyFail(userId);
+    return res.json(denied('used', 'This key is already used by another Roblox account.'));
+  }
+
+  // 2) ผูกคีย์กับผู้เล่นคนนี้
+  try {
+    const stale = findTenantByRoblox(name); // ชื่อนี้ค้างอยู่ในบัญชีอื่น (ใส่มือไว้เก่า) ให้ย้ายออก
+    if (stale && stale !== t) await saveTenant({ ...stale, robloxName: null, robloxUserId: null });
+    await saveTenant({ ...t, robloxUserId: userId, robloxName: name, boundAt: Date.now() });
+  } catch (err) {
+    console.error('bind failed:', err.message);
+    return res.json(denied('server', 'Server error. Please try again.'));
+  }
+  keyFails.delete(userId);
+  console.log(`[${t.id}] key redeemed by Roblox ${name} (${userId})`);
+  res.json({ ...granted(tenants.get(key(t))), newlyBound: true });
+});
+
+// GET /api/events?player=<Roblox username>&userId=<Roblox UserId>  (ต้องมี x-bridge-key)
 // ดึงแล้วลบออกจากคิวทันที ครั้งละ 20 ให้ตรงกับ MAX_EVENTS_PER_POLL ของ Poller
 app.get('/api/events', requireBridgeKey, (req, res) => {
   const player = typeof req.query.player === 'string' ? req.query.player.trim().slice(0, 40) : '';
-  if (!player) return res.status(400).json({ error: 'player query parameter is required.' });
-  const t = findTenantByRoblox(player);
+  const userId = typeof req.query.userId === 'string' ? req.query.userId.trim().slice(0, 20) : '';
+  if (!player && !userId) return res.status(400).json({ error: 'player or userId query parameter is required.' });
+  const t = tenantForPlayer(userId, player);
   if (!t || !isActive(t)) return res.json({ events: [] });
   const rt = getRuntime(key(t));
   res.json({ events: rt.events.splice(0, 20) });
