@@ -980,20 +980,22 @@ app.post('/api/game/redeem', requireBridgeKey, async (req, res) => {
   const granted = (t) => ({ ok: true, tenantId: t.id, plan: planOf(t), expiresAt: t.expiresAt });
   const denied = (reason, message) => ({ ok: false, reason, message });
 
-  // 1) ผูกไว้แล้ว (หรือ Admin ใส่ชื่อ Roblox นี้ไว้เอง) เข้าได้เลยไม่ต้องใส่คีย์
-  const existing = tenantForPlayer(userId, name);
-  if (existing) {
-    if (!isActive(existing)) return res.json(denied('expired', 'Your access has expired or was disabled.'));
-    if (String(existing.robloxUserId) !== String(userId) || existing.robloxName !== name) {
-      existing.robloxUserId = userId;
-      existing.robloxName = name; // จำ UserId และอัปเดตชื่อถ้าเปลี่ยน
-      saveTenantInBackground(existing);
+  // ผูกด้วยคีย์ไว้แล้วเท่านั้น (จับด้วย UserId) ชื่อ Roblox ที่ Admin กรอกเองไม่นับ
+  const bound = findTenantByUserId(userId);
+  const rawKey = req.body?.key;
+
+  // 1) ไม่ได้ส่งคีย์มา: เข้าได้เฉพาะบัญชีที่เคยใส่คีย์ถูกแล้ว
+  if (!rawKey) {
+    if (!bound) return res.json(denied('need-key', 'Enter your game key to play.'));
+    if (!isActive(bound)) return res.json(denied('expired', 'Your access has expired or was disabled.'));
+    if (bound.robloxName !== name) {
+      bound.robloxName = name; // ผู้เล่นเปลี่ยนชื่อ Roblox
+      saveTenantInBackground(bound);
     }
-    return res.json(granted(existing));
+    return res.json(granted(bound));
   }
 
-  const rawKey = req.body?.key;
-  if (!rawKey) return res.json(denied('need-key', 'Enter your game key to play.'));
+  // 2) ส่งคีย์มา: ตรวจคีย์ทุกครั้ง แม้บัญชีจะผูกไว้แล้ว
   if (keyBlocked(userId)) return res.json(denied('too-many', 'Too many wrong keys. Try again in 15 minutes.'));
 
   const t = findTenantByKey(rawKey);
@@ -1005,6 +1007,13 @@ app.post('/api/game/redeem', requireBridgeKey, async (req, res) => {
   if (t.robloxUserId && String(t.robloxUserId) !== String(userId)) {
     recordKeyFail(userId);
     return res.json(denied('used', 'This key is already used by another Roblox account.'));
+  }
+  if (bound && bound !== t) {
+    return res.json(denied('linked-other', 'This Roblox account is already linked to a different key.'));
+  }
+  if (bound === t) {
+    keyFails.delete(userId);
+    return res.json(granted(t)); // ใส่คีย์ของตัวเองซ้ำ
   }
 
   // 2) ผูกคีย์กับผู้เล่นคนนี้
