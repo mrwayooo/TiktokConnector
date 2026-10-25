@@ -219,9 +219,10 @@
         <div id="mockResult" class="mock-result" role="status" aria-live="polite"></div>
       </div>
 
-      <div id="testNote" class="note" hidden style="margin-top:14px;color:#b7b7c5">
-        This test account has no Roblox username, so gifts are shown below only.
-        Ask the admin to add your Roblox username to test in the real game.
+      <div class="cred" style="margin-top:0;margin-bottom:18px">
+        <b>Your game key</b>
+        <div class="row"><code id="myKey"></code> <button class="small" id="copyMyKey" type="button">Copy</button></div>
+        <div id="keyHint" style="color:#b7b7c5;font-size:12px"></div>
       </div>
 
       <div id="status" class="status" data-state="idle" role="status" aria-live="polite">
@@ -248,8 +249,8 @@
       <form id="createForm" class="grid">
         <div><label for="newId">ID</label>
           <input id="newId" class="boxed" type="text" maxlength="32" placeholder="Tester-001" required /></div>
-        <div><label for="newRoblox">Roblox username</label>
-          <input id="newRoblox" class="boxed" type="text" maxlength="20" placeholder="RobloxName" required /></div>
+        <div><label for="newRoblox">Roblox (optional)</label>
+          <input id="newRoblox" class="boxed" type="text" maxlength="20" placeholder="Optional (set by key)" /></div>
         <div><label for="newPlan">Plan</label>
           <select id="newPlan" class="boxed">
             <option value="rental">Rental (days)</option>
@@ -266,6 +267,7 @@
         <b>Copy these now — the password will not be shown again.</b>
         <div class="row">ID: <code id="credId"></code> <button class="small" id="copyId" type="button">Copy</button></div>
         <div class="row">Password: <code id="credPw"></code> <button class="small" id="copyPw" type="button">Copy</button></div>
+        <div class="row">Game key: <code id="credKey"></code> <button class="small" id="copyKey" type="button">Copy</button></div>
         <div class="row">Roblox: <code id="credRoblox"></code></div>
       </div>
 
@@ -274,7 +276,7 @@
         <div class="table-wrap">
           <table>
             <thead><tr>
-              <th>ID</th><th>Roblox</th><th>Status</th><th>TikTok</th><th>Plan / Expires</th><th>Queue</th><th></th>
+              <th>ID</th><th>Game key</th><th>Roblox</th><th>Status</th><th>TikTok</th><th>Plan / Expires</th><th>Queue</th><th></th>
             </tr></thead>
             <tbody id="tenantRows"></tbody>
           </table>
@@ -414,9 +416,12 @@
       const access = me.plan === "lifetime" ? "Access: Lifetime"
         : me.expiresAt ? `Access until: ${fmtDate(me.expiresAt)}` : "No expiry";
       const roblox = (me.plan === "test" ? "Test account · " : "") +
-        (me.robloxName ? `Roblox: ${me.robloxName}` : "No Roblox (web only)");
+        (me.robloxName ? `Roblox: ${me.robloxName}` : "Roblox: not linked yet");
       $("tenantWho").append("Signed in as ", b, ` · ${roblox} · ${access}`);
-      $("testNote").hidden = !!me.robloxName;
+      $("myKey").textContent = me.gameKey || "—";
+      $("keyHint").textContent = me.bound
+        ? `Linked to ${me.robloxName}. Join the game with this account to play.`
+        : "Join the Roblox game and enter this key once. It links to that Roblox account. Until then, gifts show on this page only.";
       loadGifts();
       if (me.lastTikTok && !$("username").value) $("username").value = me.lastTikTok;
       refreshStatus().then(maybeAutoConnect);
@@ -564,7 +569,7 @@
         });
         const e = result.created[0];
         $("mockResult").textContent = !currentRoblox
-          ? `Web only (no Roblox username): ${e.giftName} → ${e.ability}`
+          ? `Web only (enter your key in game first): ${e.giftName} → ${e.ability}`
           : `Queued #${e.id}: ${e.giftName} → ${e.ability}`;
         refreshStatus();
       } catch (error) {
@@ -583,13 +588,16 @@
 
     function adminMsg(text) { $("adminMsg").textContent = text || ""; }
 
-    function showCreds(id, password, roblox) {
+    function showCreds(id, password, roblox, gameKey) {
       $("credId").textContent = id;
       $("credPw").textContent = password;
-      $("credRoblox").textContent = roblox || "";
+      $("credKey").textContent = gameKey || "";
+      $("credRoblox").textContent = roblox || "(bound when the key is entered in game)";
       $("credBox").hidden = false;
     }
     $("copyId").addEventListener("click", (e) => copyText($("credId").textContent, e.target));
+    $("copyKey").addEventListener("click", (e) => copyText($("credKey").textContent, e.target));
+    $("copyMyKey").addEventListener("click", (e) => copyText($("myKey").textContent, e.target));
     $("copyPw").addEventListener("click", (e) => copyText($("credPw").textContent, e.target));
 
     function btn(label, cls, handler) {
@@ -628,7 +636,7 @@
         if (!tenants.length) {
           const tr = document.createElement("tr");
           const c = td("No tenants yet.");
-          c.colSpan = 7;
+          c.colSpan = 8;
           tr.appendChild(c);
           body.appendChild(tr);
           return;
@@ -636,7 +644,13 @@
         for (const t of tenants) {
           const tr = document.createElement("tr");
           tr.appendChild(td(t.id));
-          tr.appendChild(td(t.robloxName || "—"));
+          const keyCell = document.createElement("div");
+          keyCell.className = "actions";
+          const code = document.createElement("code");
+          code.textContent = t.gameKey || "—";
+          keyCell.append(code, btn("Copy", "", (e) => copyText(t.gameKey || "", e.target)));
+          tr.appendChild(td(keyCell));
+          tr.appendChild(td(t.robloxName ? (t.bound ? t.robloxName : `${t.robloxName} (not joined yet)`) : "Not bound"));
           tr.appendChild(td(t.active ? tag("Active", "ok") : tag(t.disabled ? "Disabled" : "Expired", "bad")));
           tr.appendChild(td(t.tiktok ? `@${t.tiktok.username} (${t.tiktok.state})` : "—"));
           if (t.plan === "lifetime") tr.appendChild(td(tag("Lifetime", "ok")));
@@ -652,41 +666,38 @@
           actions.appendChild(btn("Reset pw", "", () => act(async () => {
             if (!confirm(`Reset password for ${t.id}?`)) return;
             const r = await api(`/api/admin/tenants/${encodeURIComponent(t.id)}/reset-password`, { method: "POST" });
-            showCreds(r.id, r.password, t.robloxName);
+            showCreds(r.id, r.password, t.robloxName, t.gameKey);
           })));
           actions.appendChild(btn(t.disabled ? "Enable" : "Disable", "", () => act(() =>
             api(`/api/admin/tenants/${encodeURIComponent(t.id)}`, { method: "PATCH", body: JSON.stringify({ disabled: !t.disabled }) }))));
           const url = `/api/admin/tenants/${encodeURIComponent(t.id)}`;
           const patch = (body) => api(url, { method: "PATCH", body: JSON.stringify(body) });
-          // บัญชี Test ต้องได้ชื่อ Roblox ก่อนเปลี่ยนเป็นเช่าหรือซื้อขาด
-          const askRoblox = () => t.robloxName ? undefined : prompt(`Roblox username for ${t.id}:`, "");
           if (t.expiresAt) {
             actions.appendChild(btn("+30d", "", () => act(() => patch({ extendDays: 30 }))));
           }
           if (t.plan !== "lifetime") {
             actions.appendChild(btn("Lifetime", "", () => act(async () => {
               if (!confirm(`Make ${t.id} lifetime (never expires)?`)) return;
-              const robloxName = askRoblox();
-              if (robloxName === null || robloxName === "") return;
-              await patch({ plan: "lifetime", ...(robloxName ? { robloxName } : {}) });
+              await patch({ plan: "lifetime" });
             })));
           }
           if (t.plan !== "rental") {
             actions.appendChild(btn("To rental…", "", () => act(async () => {
               const days = prompt(`Change ${t.id} to rental. Days from now:`, "30");
               if (!days) return;
-              const robloxName = askRoblox();
-              if (robloxName === null || robloxName === "") return;
-              await patch({ plan: "rental", days: Number(days), ...(robloxName ? { robloxName } : {}) });
+              await patch({ plan: "rental", days: Number(days) });
             })));
           }
-          actions.appendChild(btn("Roblox…", "", () => act(async () => {
-            const hint = t.plan === "test" ? " (leave empty = web only)" : "";
-            const name = prompt(`Roblox username for ${t.id}${hint}`, t.robloxName || "");
-            if (name === null) return;
-            if (!name.trim() && t.plan !== "test") return;
-            await patch({ robloxName: name.trim() });
+          actions.appendChild(btn("New key", "", () => act(async () => {
+            if (!confirm(`Make a new game key for ${t.id}? The old key stops working. The bound Roblox account stays.`)) return;
+            await patch({ newKey: true });
           })));
+          if (t.robloxName) {
+            actions.appendChild(btn("Unbind", "", () => act(async () => {
+              if (!confirm(`Unbind ${t.robloxName} from ${t.id}? They must enter the key again in game.`)) return;
+              await patch({ unbind: true });
+            })));
+          }
           actions.appendChild(btn("Delete", "danger", () => act(async () => {
             if (!confirm(`Delete ${t.id}? This cannot be undone.`)) return;
             await api(`/api/admin/tenants/${encodeURIComponent(t.id)}`, { method: "DELETE" });
@@ -712,7 +723,7 @@
             days: Number($("newDays").value || 0)
           })
         });
-        showCreds(r.tenant.id, r.password, r.tenant.robloxName);
+        showCreds(r.tenant.id, r.password, r.tenant.robloxName, r.tenant.gameKey);
         $("newId").value = "";
         $("newRoblox").value = "";
         loadTenants();
@@ -725,9 +736,6 @@
       const plan = $("newPlan").value;
       $("newDays").disabled = plan === "lifetime";
       $("newDays").min = plan === "test" ? "0" : "1";
-      const rb = $("newRoblox");
-      rb.required = plan !== "test";
-      rb.placeholder = plan === "test" ? "Optional (to test in game)" : "RobloxName";
     });
 
     $("randomBtn").addEventListener("click", async () => {
